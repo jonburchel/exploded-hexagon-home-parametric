@@ -52,15 +52,16 @@ def _poll():
         return 0.5
 
     try:
-        conn.settimeout(2.0)
+        conn.settimeout(5.0)
         data = b""
         while True:
-            chunk = conn.recv(4096)
+            try:
+                chunk = conn.recv(65536)
+            except socket.timeout:
+                break
             if not chunk:
                 break
             data += chunk
-            if b"\n" in data:
-                break
         code = data.decode("utf-8", errors="replace").strip()
         if not code:
             conn.sendall(b"(empty)\n")
