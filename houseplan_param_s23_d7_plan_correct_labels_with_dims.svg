@@ -1,0 +1,215 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2177" height="1703" viewBox="0 0 2177 1703">
+<rect x="0" y="0" width="2177" height="1703" fill="#f7f7fb"/>
+<rect x="1657.5" y="0" width="520.0" height="1703.4" fill="#f2f3f7" stroke="#d6d7de" stroke-width="1"/>
+<text x="36.0" y="28.0" font-size="16" font-weight="800" text-anchor="start" fill="#0f172a" font-family="Inter, Segoe UI, Arial, sans-serif">Houseplan concept (plan) – s=23 ft, d=7 ft</text>
+<text x="36.0" y="48.0" font-size="11" font-weight="500" text-anchor="start" fill="#334155" font-family="Inter, Segoe UI, Arial, sans-serif">Back of property is at TOP of page. Front/entry at BOTTOM.</text>
+<path d="M 828.74,1487.44 L 1481.48,356.86 L 176.00,356.86 Z" fill="rgba(160,140,210,0.18)" stroke="#222" stroke-width="2" stroke-dasharray="7 6"/>
+<path d="M 393.58,733.72 L 611.16,1110.58 L 667.74,1012.58 L 506.74,733.72 Z" fill="rgba(160,140,210,0.40)" stroke="none"/>
+<path d="M 667.74,454.86 L 989.74,454.86 L 1046.32,356.86 L 611.16,356.86 Z" fill="rgba(160,140,210,0.40)" stroke="none"/>
+<path d="M 1150.74,733.72 L 989.74,1012.58 L 1046.32,1110.58 L 1263.90,733.72 Z" fill="rgba(160,140,210,0.40)" stroke="none"/>
+<path d="M 184.74,733.72 L 506.74,1291.44 L 667.74,1012.58 L 506.74,733.72 Z" fill="rgba(210,140,120,0.55)" stroke="#222" stroke-width="2"/>
+<path d="M 1150.74,1291.44 L 1472.74,733.72 L 1150.74,733.72 L 989.74,1012.58 Z" fill="rgba(210,140,120,0.55)" stroke="#222" stroke-width="2"/>
+<path d="M 1150.74,176.00 L 506.74,176.00 L 667.74,454.86 L 989.74,454.86 Z" fill="rgba(150,210,150,0.55)" stroke="#222" stroke-width="2"/>
+<path d="M 506.74,733.72 L 667.74,1012.58 L 989.74,1012.58 L 1150.74,733.72 L 989.74,454.86 L 667.74,454.86 Z" fill="rgba(120,165,210,0.58)" stroke="#222" stroke-width="2.7"/>
+<text x="828.7" y="727.7" font-size="11" font-weight="800" text-anchor="middle" fill="#0f172a" font-family="Inter, Segoe UI, Arial, sans-serif">Atrium (L1)</text>
+<text x="828.7" y="741.7" font-size="9.5" font-weight="500" text-anchor="middle" fill="#111" font-family="Inter, Segoe UI, Arial, sans-serif">
+  <tspan x="828.7" dy="0">1,374 sqft</tspan>
+</text>
+<text x="466.5" y="940.9" font-size="11" font-weight="800" text-anchor="middle" fill="#0f172a" font-family="Inter, Segoe UI, Arial, sans-serif">Wing A</text>
+<text x="466.5" y="954.9" font-size="9.5" font-weight="500" text-anchor="middle" fill="#111" font-family="Inter, Segoe UI, Arial, sans-serif">
+  <tspan x="466.5" dy="0">687 sqft</tspan>
+  <tspan x="466.5" dy="12">Upper/front ground</tspan>
+</text>
+<text x="828.7" y="313.4" font-size="11" font-weight="800" text-anchor="middle" fill="#0f172a" font-family="Inter, Segoe UI, Arial, sans-serif">Wing B</text>
+<text x="828.7" y="327.4" font-size="9.5" font-weight="500" text-anchor="middle" fill="#111" font-family="Inter, Segoe UI, Arial, sans-serif">
+  <tspan x="828.7" dy="0">687 sqft</tspan>
+  <tspan x="828.7" dy="12">Lower/back ground</tspan>
+</text>
+<text x="1191.0" y="940.9" font-size="11" font-weight="800" text-anchor="middle" fill="#0f172a" font-family="Inter, Segoe UI, Arial, sans-serif">Wing C</text>
+<text x="1191.0" y="954.9" font-size="9.5" font-weight="500" text-anchor="middle" fill="#111" font-family="Inter, Segoe UI, Arial, sans-serif">
+  <tspan x="1191.0" dy="0">687 sqft</tspan>
+  <tspan x="1191.0" dy="12">Upper/front ground</tspan>
+</text>
+<text x="544.8" y="897.7" font-size="9" font-weight="600" text-anchor="middle" fill="#2f2458" font-family="Inter, Segoe UI, Arial, sans-serif">
+  <tspan x="544.8" dy="0">Overlap 1</tspan>
+  <tspan x="544.8" dy="12">189 sqft</tspan>
+</text>
+<text x="828.7" y="405.9" font-size="9" font-weight="600" text-anchor="middle" fill="#2f2458" font-family="Inter, Segoe UI, Arial, sans-serif">
+  <tspan x="828.7" dy="0">Overlap 2</tspan>
+  <tspan x="828.7" dy="12">189 sqft</tspan>
+</text>
+<text x="1112.7" y="897.7" font-size="9" font-weight="600" text-anchor="middle" fill="#2f2458" font-family="Inter, Segoe UI, Arial, sans-serif">
+  <tspan x="1112.7" dy="0">Overlap 3</tspan>
+  <tspan x="1112.7" dy="12">189 sqft</tspan>
+</text>
+<text x="828.7" y="1351.8" font-size="9" font-weight="700" text-anchor="middle" fill="#2f2458" font-family="Inter, Segoe UI, Arial, sans-serif">
+  <tspan x="828.7" dy="0">Extrusion 1</tspan>
+  <tspan x="828.7" dy="12">608 sqft</tspan>
+</text>
+<text x="1364.0" y="424.7" font-size="9" font-weight="700" text-anchor="middle" fill="#2f2458" font-family="Inter, Segoe UI, Arial, sans-serif">
+  <tspan x="1364.0" dy="0">Extrusion 2</tspan>
+  <tspan x="1364.0" dy="12">608 sqft</tspan>
+</text>
+<text x="293.5" y="424.7" font-size="9" font-weight="700" text-anchor="middle" fill="#2f2458" font-family="Inter, Segoe UI, Arial, sans-serif">
+  <tspan x="293.5" dy="0">Extrusion 3</tspan>
+  <tspan x="293.5" dy="12">608 sqft</tspan>
+</text>
+<line x1="506.74" y1="715.72" x2="1150.74" y2="715.72" stroke="#0b1220" stroke-width="1.4"/>
+<line x1="506.74" y1="721.72" x2="506.74" y2="709.72" stroke="#0b1220" stroke-width="1.4"/>
+<line x1="1150.74" y1="721.72" x2="1150.74" y2="709.72" stroke="#0b1220" stroke-width="1.4"/>
+<text x="828.7" y="711.7" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif" transform="rotate(0.00 828.7 711.7)">Hex across points = 46.0 ft</text>
+<line x1="806.74" y1="454.86" x2="806.74" y2="1012.58" stroke="#0b1220" stroke-width="1.4"/>
+<line x1="800.74" y1="454.86" x2="812.74" y2="454.86" stroke="#0b1220" stroke-width="1.4"/>
+<line x1="800.74" y1="1012.58" x2="812.74" y2="1012.58" stroke="#0b1220" stroke-width="1.4"/>
+<text x="806.7" y="729.7" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif" transform="rotate(90.00 806.7 729.7)">Across flats = 39.8 ft</text>
+<line x1="989.74" y1="470.86" x2="667.74" y2="470.86" stroke="#0b1220" stroke-width="1.4"/>
+<line x1="989.74" y1="464.86" x2="989.74" y2="476.86" stroke="#0b1220" stroke-width="1.4"/>
+<line x1="667.74" y1="464.86" x2="667.74" y2="476.86" stroke="#0b1220" stroke-width="1.4"/>
+<text x="828.7" y="466.9" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif" transform="rotate(0.00 828.7 466.9)">s = 23.0 ft</text>
+<line x1="1481.48" y1="376.86" x2="176.00" y2="376.86" stroke="#0b1220" stroke-width="1.4"/>
+<line x1="1481.48" y1="370.86" x2="1481.48" y2="382.86" stroke="#0b1220" stroke-width="1.4"/>
+<line x1="176.00" y1="370.86" x2="176.00" y2="382.86" stroke="#0b1220" stroke-width="1.4"/>
+<text x="828.7" y="372.9" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif" transform="rotate(0.00 828.7 372.9)">Triangle side ≈ 93.2 ft</text>
+<line x1="828.74" y1="454.86" x2="828.74" y2="356.86" stroke="#0b1220" stroke-width="1.4"/>
+<line x1="834.74" y1="454.86" x2="822.74" y2="454.86" stroke="#0b1220" stroke-width="1.4"/>
+<line x1="834.74" y1="356.86" x2="822.74" y2="356.86" stroke="#0b1220" stroke-width="1.4"/>
+<text x="828.7" y="401.9" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif" transform="rotate(-90.00 828.7 401.9)">d = 7.0 ft</text>
+<line x1="170.74" y1="1645.44" x2="1486.74" y2="1645.44" stroke="#0b1220" stroke-width="2"/>
+<line x1="170.74" y1="1645.44" x2="170.74" y2="1661.44" stroke="#0b1220" stroke-width="2"/>
+<text x="170.7" y="1675.4" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif">0</text>
+<line x1="184.74" y1="1645.44" x2="184.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="198.74" y1="1645.44" x2="198.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="212.74" y1="1645.44" x2="212.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="226.74" y1="1645.44" x2="226.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="240.74" y1="1645.44" x2="240.74" y2="1657.44" stroke="#0b1220" stroke-width="1.6"/>
+<text x="240.7" y="1671.4" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif">5</text>
+<line x1="254.74" y1="1645.44" x2="254.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="268.74" y1="1645.44" x2="268.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="282.74" y1="1645.44" x2="282.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="296.74" y1="1645.44" x2="296.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="310.74" y1="1645.44" x2="310.74" y2="1661.44" stroke="#0b1220" stroke-width="2"/>
+<text x="310.7" y="1675.4" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif">10</text>
+<line x1="324.74" y1="1645.44" x2="324.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="338.74" y1="1645.44" x2="338.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="352.74" y1="1645.44" x2="352.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="366.74" y1="1645.44" x2="366.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="380.74" y1="1645.44" x2="380.74" y2="1657.44" stroke="#0b1220" stroke-width="1.6"/>
+<text x="380.7" y="1671.4" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif">15</text>
+<line x1="394.74" y1="1645.44" x2="394.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="408.74" y1="1645.44" x2="408.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="422.74" y1="1645.44" x2="422.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="436.74" y1="1645.44" x2="436.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="450.74" y1="1645.44" x2="450.74" y2="1661.44" stroke="#0b1220" stroke-width="2"/>
+<text x="450.7" y="1675.4" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif">20</text>
+<line x1="464.74" y1="1645.44" x2="464.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="478.74" y1="1645.44" x2="478.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="492.74" y1="1645.44" x2="492.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="506.74" y1="1645.44" x2="506.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="520.74" y1="1645.44" x2="520.74" y2="1657.44" stroke="#0b1220" stroke-width="1.6"/>
+<text x="520.7" y="1671.4" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif">25</text>
+<line x1="534.74" y1="1645.44" x2="534.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="548.74" y1="1645.44" x2="548.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="562.74" y1="1645.44" x2="562.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="576.74" y1="1645.44" x2="576.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="590.74" y1="1645.44" x2="590.74" y2="1661.44" stroke="#0b1220" stroke-width="2"/>
+<text x="590.7" y="1675.4" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif">30</text>
+<line x1="604.74" y1="1645.44" x2="604.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="618.74" y1="1645.44" x2="618.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="632.74" y1="1645.44" x2="632.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="646.74" y1="1645.44" x2="646.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="660.74" y1="1645.44" x2="660.74" y2="1657.44" stroke="#0b1220" stroke-width="1.6"/>
+<text x="660.7" y="1671.4" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif">35</text>
+<line x1="674.74" y1="1645.44" x2="674.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="688.74" y1="1645.44" x2="688.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="702.74" y1="1645.44" x2="702.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="716.74" y1="1645.44" x2="716.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="730.74" y1="1645.44" x2="730.74" y2="1661.44" stroke="#0b1220" stroke-width="2"/>
+<text x="730.7" y="1675.4" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif">40</text>
+<line x1="744.74" y1="1645.44" x2="744.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="758.74" y1="1645.44" x2="758.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="772.74" y1="1645.44" x2="772.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="786.74" y1="1645.44" x2="786.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="800.74" y1="1645.44" x2="800.74" y2="1657.44" stroke="#0b1220" stroke-width="1.6"/>
+<text x="800.7" y="1671.4" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif">45</text>
+<line x1="814.74" y1="1645.44" x2="814.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="828.74" y1="1645.44" x2="828.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="842.74" y1="1645.44" x2="842.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="856.74" y1="1645.44" x2="856.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="870.74" y1="1645.44" x2="870.74" y2="1661.44" stroke="#0b1220" stroke-width="2"/>
+<text x="870.7" y="1675.4" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif">50</text>
+<line x1="884.74" y1="1645.44" x2="884.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="898.74" y1="1645.44" x2="898.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="912.74" y1="1645.44" x2="912.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="926.74" y1="1645.44" x2="926.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="940.74" y1="1645.44" x2="940.74" y2="1657.44" stroke="#0b1220" stroke-width="1.6"/>
+<text x="940.7" y="1671.4" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif">55</text>
+<line x1="954.74" y1="1645.44" x2="954.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="968.74" y1="1645.44" x2="968.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="982.74" y1="1645.44" x2="982.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="996.74" y1="1645.44" x2="996.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1010.74" y1="1645.44" x2="1010.74" y2="1661.44" stroke="#0b1220" stroke-width="2"/>
+<text x="1010.7" y="1675.4" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif">60</text>
+<line x1="1024.74" y1="1645.44" x2="1024.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1038.74" y1="1645.44" x2="1038.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1052.74" y1="1645.44" x2="1052.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1066.74" y1="1645.44" x2="1066.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1080.74" y1="1645.44" x2="1080.74" y2="1657.44" stroke="#0b1220" stroke-width="1.6"/>
+<text x="1080.7" y="1671.4" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif">65</text>
+<line x1="1094.74" y1="1645.44" x2="1094.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1108.74" y1="1645.44" x2="1108.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1122.74" y1="1645.44" x2="1122.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1136.74" y1="1645.44" x2="1136.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1150.74" y1="1645.44" x2="1150.74" y2="1661.44" stroke="#0b1220" stroke-width="2"/>
+<text x="1150.7" y="1675.4" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif">70</text>
+<line x1="1164.74" y1="1645.44" x2="1164.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1178.74" y1="1645.44" x2="1178.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1192.74" y1="1645.44" x2="1192.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1206.74" y1="1645.44" x2="1206.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1220.74" y1="1645.44" x2="1220.74" y2="1657.44" stroke="#0b1220" stroke-width="1.6"/>
+<text x="1220.7" y="1671.4" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif">75</text>
+<line x1="1234.74" y1="1645.44" x2="1234.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1248.74" y1="1645.44" x2="1248.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1262.74" y1="1645.44" x2="1262.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1276.74" y1="1645.44" x2="1276.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1290.74" y1="1645.44" x2="1290.74" y2="1661.44" stroke="#0b1220" stroke-width="2"/>
+<text x="1290.7" y="1675.4" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif">80</text>
+<line x1="1304.74" y1="1645.44" x2="1304.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1318.74" y1="1645.44" x2="1318.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1332.74" y1="1645.44" x2="1332.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1346.74" y1="1645.44" x2="1346.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1360.74" y1="1645.44" x2="1360.74" y2="1657.44" stroke="#0b1220" stroke-width="1.6"/>
+<text x="1360.7" y="1671.4" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif">85</text>
+<line x1="1374.74" y1="1645.44" x2="1374.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1388.74" y1="1645.44" x2="1388.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1402.74" y1="1645.44" x2="1402.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1416.74" y1="1645.44" x2="1416.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1430.74" y1="1645.44" x2="1430.74" y2="1661.44" stroke="#0b1220" stroke-width="2"/>
+<text x="1430.7" y="1675.4" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif">90</text>
+<line x1="1444.74" y1="1645.44" x2="1444.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1458.74" y1="1645.44" x2="1458.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1472.74" y1="1645.44" x2="1472.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<line x1="1486.74" y1="1645.44" x2="1486.74" y2="1653.44" stroke="#0b1220" stroke-width="1.2"/>
+<text x="170.7" y="1637.4" font-size="9" font-weight="500" text-anchor="start" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif">Scale (feet)</text>
+<text x="828.7" y="1637.4" font-size="9" font-weight="500" text-anchor="middle" fill="#0b1220" font-family="Inter, Segoe UI, Arial, sans-serif">0 to 94 ft</text>
+<text x="1681.5" y="38.0" font-size="16" font-weight="800" text-anchor="start" fill="#0f172a" font-family="Inter, Segoe UI, Arial, sans-serif">Legend</text>
+<rect x="1683.5" y="54.0" width="18" height="18" fill="rgba(120,165,210,0.58)" stroke="#111" stroke-width="1" rx="4"/>
+<text x="1681.5" y="68.0" font-size="12" font-weight="650" text-anchor="start" fill="#0f172a" font-family="Inter, Segoe UI, Arial, sans-serif">Atrium (Level 1 floor)</text>
+<rect x="1683.5" y="82.0" width="18" height="18" fill="rgba(210,140,120,0.55)" stroke="#111" stroke-width="1" rx="4"/>
+<text x="1681.5" y="96.0" font-size="12" font-weight="650" text-anchor="start" fill="#0f172a" font-family="Inter, Segoe UI, Arial, sans-serif">Upper/front wings (A &amp; C)</text>
+<rect x="1683.5" y="110.0" width="18" height="18" fill="rgba(150,210,150,0.55)" stroke="#111" stroke-width="1" rx="4"/>
+<text x="1681.5" y="124.0" font-size="12" font-weight="650" text-anchor="start" fill="#0f172a" font-family="Inter, Segoe UI, Arial, sans-serif">Lower/back wing (B)</text>
+<rect x="1683.5" y="138.0" width="18" height="18" fill="rgba(160,140,210,0.18)" stroke="#111" stroke-width="1" rx="4"/>
+<text x="1681.5" y="152.0" font-size="12" font-weight="650" text-anchor="start" fill="#0f172a" font-family="Inter, Segoe UI, Arial, sans-serif">Master footprint (triangle)</text>
+<rect x="1683.5" y="166.0" width="18" height="18" fill="rgba(160,140,210,0.40)" stroke="#111" stroke-width="1" rx="4"/>
+<text x="1681.5" y="180.0" font-size="12" font-weight="650" text-anchor="start" fill="#0f172a" font-family="Inter, Segoe UI, Arial, sans-serif">Master overlap areas</text>
+<text x="1681.5" y="226.0" font-size="16" font-weight="800" text-anchor="start" fill="#0f172a" font-family="Inter, Segoe UI, Arial, sans-serif">Computed summary</text>
+<text x="1681.5" y="256.0" font-size="12" font-weight="650" text-anchor="start" fill="#0f172a" font-family="Inter, Segoe UI, Arial, sans-serif">Atrium (L1): 1,374 sqft</text>
+<text x="1681.5" y="274.0" font-size="12" font-weight="650" text-anchor="start" fill="#0f172a" font-family="Inter, Segoe UI, Arial, sans-serif">Each wing: 687 sqft (x3 = 2,062)</text>
+<text x="1681.5" y="292.0" font-size="12" font-weight="650" text-anchor="start" fill="#0f172a" font-family="Inter, Segoe UI, Arial, sans-serif">Master gross (triangle): 3,765 sqft</text>
+<text x="1681.5" y="310.0" font-size="12" font-weight="650" text-anchor="start" fill="#0f172a" font-family="Inter, Segoe UI, Arial, sans-serif">Master net (minus atrium void): 2,391</text>
+<text x="1681.5" y="328.0" font-size="12" font-weight="650" text-anchor="start" fill="#0f172a" font-family="Inter, Segoe UI, Arial, sans-serif">sqft</text>
+<text x="1681.5" y="346.0" font-size="12" font-weight="650" text-anchor="start" fill="#0f172a" font-family="Inter, Segoe UI, Arial, sans-serif">TOTAL floor area (atrium counted once):</text>
+<text x="1681.5" y="364.0" font-size="12" font-weight="650" text-anchor="start" fill="#0f172a" font-family="Inter, Segoe UI, Arial, sans-serif">5,827 sqft</text>
+<text x="1681.5" y="392.0" font-size="12" font-weight="650" text-anchor="start" fill="#0f172a" font-family="Inter, Segoe UI, Arial, sans-serif">Geometry: s=23.0 ft, d=7.0 ft</text>
+<text x="1681.5" y="410.0" font-size="12" font-weight="650" text-anchor="start" fill="#0f172a" font-family="Inter, Segoe UI, Arial, sans-serif">Triangle side ≈ 93.2 ft</text>
+</svg>

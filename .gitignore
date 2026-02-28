@@ -1,0 +1,23 @@
+# Downloaded 3D assets (large, re-downloadable via src/download_assets.py)
+assets/models/plants/
+
+# Blender temp/backup files
+*.blend1
+*.blend2
+
+# Large binary outputs (generated, not source)
+out/
+F__home_*.blend
+
+# Archive binaries (keep on disk, not in git)
+archive/**/*.glb
+archive/**/*.obj
+archive/**/*.blend
+
+# Python
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+Thumbs.db
