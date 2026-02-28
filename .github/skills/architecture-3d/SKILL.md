@@ -145,9 +145,9 @@ If a delegated sub-agent produces incorrect results after **TWO** attempts:
 5. If all three fail, surface the problem to the user
 
 ```
-Primary fails x2 → Auto-delegate to fallback model
-Fallback fails x2 → Auto-delegate to third model
-Third fails x2   → Surface the problem to the user for manual guidance
+Primary fails x2 -> Auto-delegate to fallback model
+Fallback fails x2 -> Auto-delegate to third model
+Third fails x2   -> Surface the problem to the user for manual guidance
 ```
 
 ### When NOT to Delegate
@@ -759,3 +759,106 @@ After generating a GLB, verify in Blender or a viewer:
 | GLB imports upside down | Missing orientation correction | Apply -90° X rotation in export |
 | Materials all same color | Per-component material not set in GLB | Ensure each mesh node has distinct material index |
 | Shared edge gap | Floating point drift | Use same vertex array for both components |
+| Sky appears white/flat | Normal Z not negated in world shader | Multiply Normal Z by -1 before sky gradient (upward rays have negative Z) |
+| Fountain water invisible | Water mesh below stone mesh | Raise water mesh Z above stone surface |
+| High-emission colors desaturated | Filmic tone mapping compresses bright values | Use pure diffuse color instead of high-emission for saturated colors |
+
+---
+
+## 14. Recommended Blender Add-ons
+
+### Auto-Enable (Free, Built-in)
+These ship with Blender and should be enabled automatically in startup scripts:
+
+| Add-on | Purpose | Enable Code |
+|--------|---------|-------------|
+| Add Camera Rigs | Dolly/crane camera controls for smooth walkthrough animation | `bpy.ops.preferences.addon_enable(module='add_camera_rigs')` |
+| Node Wrangler | Shader node shortcuts (Ctrl+T for texture mapping, etc.) | `bpy.ops.preferences.addon_enable(module='node_wrangler')` |
+| Import Images as Planes | Quick texture/reference image import | `bpy.ops.preferences.addon_enable(module='import_image_plane')` |
+
+Add this to `blender_startup.py` or call via remote console at session start.
+
+### Recommended (Free Community)
+Install manually if needed; high value for archviz:
+
+| Add-on | What It Does | Where to Get |
+|--------|-------------|--------------|
+| MeasureIt_ARCH | Technical dimensions, annotations, scaled drawing exports | GitHub: blender-archipack/MeasureIt_ARCH |
+| CAD Sketcher | Constraint-based 2D sketching with dimensions | Blender Extensions |
+
+### Optional (Paid, for advanced work)
+These require purchase but offer significant productivity gains:
+
+| Add-on | What It Does | Why Consider | Scriptable? |
+|--------|-------------|-------------|-------------|
+| Geo-Scatter | High-perf vegetation scattering with masks/rules | Best for dense garden/landscape | Limited (GUI-first) |
+| botaniq | Ready-to-render plant library with LODs | Fast believable landscaping | Partial (import scriptable) |
+| materialiq | Curated PBR material library | Consistent material quality | Good (assignment scriptable) |
+| Physical Starlight | Physically based sky/atmosphere/sun | Realistic outdoor lighting | Good (property-based) |
+
+### Add-on Enable Helper
+Use `blender_helpers.py` function `enable_builtin_addons()` to auto-enable the
+free built-in add-ons at session start:
+
+```python
+from blender_helpers import enable_builtin_addons
+enable_builtin_addons()  # Enables Camera Rigs, Node Wrangler, Import Images
+```
+
+---
+
+## 15. Solar Angle Awareness
+
+### Sun Position Integration
+The project includes `src/sun_position.py` for computing accurate sun angles.
+Add geographic coordinates and date to `config.json`:
+
+```json
+{
+  "latitude": 35.7796,
+  "longitude": -78.6382,
+  "timezone_offset": -5,
+  "sun_date": "2026-06-21",
+  "sun_time": "10:00"
+}
+```
+
+Use in Blender scripts:
+```python
+from sun_position import get_sun_position
+azimuth, elevation = get_sun_position(lat, lon, date, time, tz)
+sun_lamp.rotation_euler = sun_angles_to_euler(azimuth, elevation)
+```
+
+This ensures renders show accurate shadow direction for the building's
+actual site location and time of year.
+
+---
+
+## 16. Cost Estimation Reference
+
+### Rough $/SF Ranges (2025-2026 USD, residential custom)
+
+| Component | Low | Mid | High | Notes |
+|-----------|-----|-----|------|-------|
+| Polished concrete (slab + walls) | $15 | $25 | $40 | Includes forming, pouring, finishing |
+| Glass curtain wall | $80 | $120 | $200 | Structural glazing system |
+| Standing seam metal roof | $12 | $18 | $30 | Installed |
+| Landscaping (basic) | $5 | $10 | $20 | Per SF of landscaped area |
+| Interior finishes (mid-range) | $40 | $75 | $120 | Flooring, cabinetry, fixtures |
+| Site work / excavation | $3 | $8 | $15 | Grading, drainage, utilities |
+
+### Quick Cost Calculator
+Read areas from `out/summary_s23_d7.txt` and multiply:
+```python
+# Example: rough cost estimate
+concrete_sf = slab_area + wall_area  # from summary
+glass_sf = facade_area               # from summary
+roof_sf = triangle_area              # from summary
+
+cost_low = concrete_sf * 15 + glass_sf * 80 + roof_sf * 12
+cost_mid = concrete_sf * 25 + glass_sf * 120 + roof_sf * 18
+cost_high = concrete_sf * 40 + glass_sf * 200 + roof_sf * 30
+```
+
+These are rough order-of-magnitude estimates for budgeting, not construction bids.

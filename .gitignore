@@ -9,6 +9,9 @@ assets/models/plants/
 out/
 F__home_*.blend
 
+# Large video renders (keep local, too big for GitHub)
+renders/*.mp4
+
 # Archive binaries (keep on disk, not in git)
 archive/**/*.glb
 archive/**/*.obj

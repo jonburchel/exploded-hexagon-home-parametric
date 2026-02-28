@@ -243,6 +243,24 @@ def create_walkthrough_path(waypoints_ft, fps=30, speed_ft_per_sec=4.0):
     return path_obj
 
 
+def enable_builtin_addons():
+    """Enable recommended built-in Blender add-ons for archviz work."""
+    import bpy
+
+    addons = [
+        ("add_camera_rigs", "Add Camera Rigs"),
+        ("node_wrangler", "Node Wrangler"),
+        ("io_import_images_as_planes", "Import Images as Planes"),
+    ]
+
+    for module, label in addons:
+        try:
+            bpy.ops.preferences.addon_enable(module=module)
+            print(f"  Enabled: {label}")
+        except Exception as e:
+            print(f"  Warning: could not enable {label}: {e}")
+
+
 if __name__ == "__main__":
     args = get_args()
     if not args:

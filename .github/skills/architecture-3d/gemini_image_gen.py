@@ -182,6 +182,122 @@ def edit_image(image_path, instruction, model="gemini-2.5-flash-preview-image-ge
     return output_path
 
 
+def refine_prompt(raw_prompt, context="architectural visualization texture"):
+    """Use Gemini to rewrite a raw prompt into an optimized image generation prompt.
+
+    Gemini writes the best prompts for its own image models. This function
+    takes a rough idea and returns a polished, detailed prompt.
+
+    Args:
+        raw_prompt: Your rough description (e.g., "concrete wall texture")
+        context: What kind of image (texture, concept art, etc.)
+
+    Returns:
+        Refined prompt string.
+    """
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client(api_key=get_api_key())
+
+    meta_prompt = f"""You are an expert at writing prompts for AI image generation models.
+Rewrite the following rough idea into a detailed, specific prompt optimized for
+generating a high-quality {context} image.
+
+Include specifics about:
+- Exact visual qualities (lighting, angle, resolution)
+- Material properties if applicable (finish, texture, color tone)
+- Technical requirements (seamless/tileable if texture, perspective if scene)
+- What to AVOID (no text, no watermarks, no borders, etc.)
+
+Raw idea: {raw_prompt}
+
+Return ONLY the refined prompt text, nothing else."""
+
+    response = client.models.generate_content(
+        model="gemini-2.0-flash-exp",
+        contents=meta_prompt,
+    )
+    refined = response.text.strip()
+    print(f"Refined prompt:\n{refined}")
+    return refined
+
+
+def generate_seamless_texture(material_name, size="2048x2048",
+                               model="gemini-2.5-flash-preview-image-generation",
+                               output_path=None):
+    """Generate a seamless tileable texture using the offset-and-fix trick.
+
+    Steps:
+    1. Generate initial texture
+    2. Roll image 50% in X and Y (moves seams to center)
+    3. Use Gemini edit to fix visible seams in the center
+    4. Save final seamless result
+
+    Args:
+        material_name: e.g., "polished concrete", "walnut hardwood"
+        size: Output resolution.
+        model: Gemini model to use.
+        output_path: Where to save the final seamless texture.
+
+    Returns:
+        Path to saved seamless texture.
+    """
+    from PIL import Image
+    import io
+
+    if not output_path:
+        safe_name = material_name.lower().replace(" ", "_").replace("/", "_")
+        output_path = f"assets/textures/{safe_name}_basecolor_seamless.png"
+
+    # Step 1: Generate initial texture
+    print(f"Step 1/3: Generating initial {material_name} texture...")
+    initial_bytes = generate_texture(material_name, size=size, model=model)
+
+    # If generate_texture returned a path (it saved the file), read it back
+    if isinstance(initial_bytes, str):
+        with open(initial_bytes, "rb") as f:
+            initial_bytes = f.read()
+
+    # Step 2: Roll image 50% in X and Y to expose seams
+    print("Step 2/3: Rolling image to expose seams...")
+    img = Image.open(io.BytesIO(initial_bytes))
+    w, h = img.size
+    # Roll by half in both axes
+    rolled = Image.new(img.mode, (w, h))
+    rolled.paste(img.crop((w//2, h//2, w, h)), (0, 0))
+    rolled.paste(img.crop((0, h//2, w//2, h)), (w//2, 0))
+    rolled.paste(img.crop((w//2, 0, w, h//2)), (0, h//2))
+    rolled.paste(img.crop((0, 0, w//2, h//2)), (w//2, h//2))
+
+    # Save rolled version temporarily
+    rolled_path = output_path.rsplit(".", 1)[0] + "_rolled.png"
+    os.makedirs(os.path.dirname(rolled_path) or ".", exist_ok=True)
+    rolled.save(rolled_path)
+
+    # Step 3: Fix seams via Gemini edit
+    print("Step 3/3: Fixing seams with AI editing...")
+    try:
+        edit_image(
+            rolled_path,
+            "Fix the visible seams (cross-shaped lines) in the center of this texture. "
+            "Make the texture look uniform and continuous. Keep the same material appearance. "
+            "Do not change the overall color or style.",
+            model=model,
+            output_path=output_path,
+        )
+    except Exception as e:
+        print(f"Warning: Seam fix failed ({e}), using rolled version as fallback")
+        rolled.save(output_path)
+
+    # Clean up temp file
+    if os.path.exists(rolled_path):
+        os.remove(rolled_path)
+
+    print(f"Seamless texture saved: {output_path}")
+    return output_path
+
+
 def main():
     parser = argparse.ArgumentParser(description="Gemini Image Generation for Architecture")
     sub = parser.add_subparsers(dest="command")
@@ -215,6 +331,19 @@ def main():
     ed.add_argument("--model", default="gemini-2.5-flash-preview-image-generation")
     ed.add_argument("--output", "-o", help="Output path (defaults to input_edited.ext)")
 
+    # Refine a prompt using Gemini
+    ref = sub.add_parser("refine", help="Use Gemini to optimize an image generation prompt")
+    ref.add_argument("--prompt", required=True, help="Raw prompt idea")
+    ref.add_argument("--context", default="architectural visualization texture",
+                     help="Type of image (texture, concept art, interior, etc.)")
+
+    # Generate seamless tileable texture (offset trick)
+    seam = sub.add_parser("seamless", help="Generate a seamless tileable texture (3-step offset trick)")
+    seam.add_argument("--material", required=True, help="Material name (e.g., 'polished concrete')")
+    seam.add_argument("--size", default="2048x2048", help="Resolution")
+    seam.add_argument("--model", default="gemini-2.5-flash-preview-image-generation")
+    seam.add_argument("--output", "-o", help="Output file path (auto-named if omitted)")
+
     args = parser.parse_args()
 
     if args.command == "generate":
@@ -227,6 +356,11 @@ def main():
                         output_path=args.output)
     elif args.command == "edit":
         edit_image(args.input, args.instruction, model=args.model, output_path=args.output)
+    elif args.command == "refine":
+        refine_prompt(args.prompt, context=args.context)
+    elif args.command == "seamless":
+        generate_seamless_texture(args.material, size=args.size, model=args.model,
+                                  output_path=args.output)
     else:
         parser.print_help()
 
