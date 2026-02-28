@@ -5,6 +5,9 @@ Creates: California King bed, 2 nightstands, 2 lounge chairs,
 coffee table, and luxury area rug in the master triangle upper level
 over Wing B.
 
+NOTE: The interior wall between the bedroom and atrium (hex edge 3->4)
+should be opaque (not glass). Wall material change handled in model.py.
+
 Run after atrium_garden.py:
   blender --background --python src/furnish_wingb.py -- in.glb out.glb
 """
@@ -38,17 +41,22 @@ if glb_in:
 FT = 0.3048  # feet to meters conversion
 
 # Wing B region on the triangle upper level
-# Hex edge 3→4 midpoint: (-17.25, -9.96)
+# Hex edge 3→4 midpoint: (-17.25, -9.96)  (interior wall)
 # Nearest triangle vertex (t1): (-53.56, 4.46)
-# Bed center (60% hex, 40% tri): (-31.77, -4.19)
-# Sitting area (30% hex, 70% tri): (-42.67, 0.13)
+# Facing direction: 158.3° from hex midpoint toward triangle tip
+#
+# Bed pushed against interior wall (headboard ~0.5 ft from hex edge 3→4).
+# Bed center = hex_midpoint + (BED_L/2 + 0.55) along facing direction:
+#   (-17.25 + 3.885*cos(158.3°), -9.96 + 3.885*sin(158.3°))
+#   ≈ (-20.86, -8.52)
+# Sitting area pushed ~6 ft further toward triangle tip from original pos.
 FLOOR_Z = 26.0 * FT  # master_triangle_elevation + slab
 ANGLE_TO_POINT = math.radians(158.3)  # direction from hex midpoint to triangle tip
 
-BED_CENTER = (-31.77 * FT, -4.19 * FT)
-SITTING_CENTER = (-42.67 * FT, 0.13 * FT)
+BED_CENTER = (-20.86 * FT, -8.52 * FT)
+SITTING_CENTER = (-48.25 * FT, 2.35 * FT)
 
-# Furniture faces toward the triangle point (outward view)
+# Furniture faces toward the triangle point (outward view, away from interior wall)
 FACING_ANGLE = ANGLE_TO_POINT
 
 # California King: 76" x 80" = 6.33' x 6.67'
@@ -73,9 +81,9 @@ TABLE_W = 4.0 * FT
 TABLE_D = 2.0 * FT
 TABLE_H = 1.4 * FT
 
-# Rug: 12' x 10'
-RUG_W = 12.0 * FT
-RUG_L = 10.0 * FT
+# Rug: 9' x 8' (sized to fit under bed area with wall clearance)
+RUG_W = 9.0 * FT
+RUG_L = 8.0 * FT
 
 # ---------------------------------------------------------------------------
 # Collection
@@ -107,25 +115,40 @@ mat_pillow = make_mat("Pillow", (0.95, 0.95, 0.93), roughness=0.85)        # whi
 mat_chair_leather = make_mat("Leather", (0.15, 0.12, 0.10), roughness=0.35, metallic=0.05)  # dark leather
 mat_metal_brass = make_mat("Brass", (0.72, 0.58, 0.30), roughness=0.2, metallic=0.9)  # brushed brass
 mat_glass_table = make_mat("TableGlass", (0.90, 0.92, 0.93), roughness=0.02)
-mat_rug = make_mat("LuxuryRug", (0.35, 0.28, 0.22), roughness=0.9)  # warm brown/taupe
+mat_rug = make_mat("LuxuryRug", (0.12, 0.15, 0.35), roughness=0.9)  # deep blue base
 
-# Add subtle pattern to rug material
+# Rug pattern: deep blue base with gold accents and burgundy highlights
 rug_nodes = mat_rug.node_tree.nodes
 rug_links = mat_rug.node_tree.links
 tc = rug_nodes.new('ShaderNodeTexCoord')
 mapping = rug_nodes.new('ShaderNodeMapping')
 rug_links.new(tc.outputs['Generated'], mapping.inputs['Vector'])
-wave = rug_nodes.new('ShaderNodeTexWave')
-wave.inputs['Scale'].default_value = 6.0
-wave.inputs['Distortion'].default_value = 2.0
-rug_links.new(mapping.outputs['Vector'], wave.inputs['Vector'])
-mix = rug_nodes.new('ShaderNodeMixRGB')
-mix.inputs['Fac'].default_value = 0.3
-mix.inputs['Color1'].default_value = (0.35, 0.28, 0.22, 1.0)
-mix.inputs['Color2'].default_value = (0.45, 0.38, 0.30, 1.0)
-rug_links.new(wave.outputs['Fac'], mix.inputs['Fac'])
+
+# First wave: blend deep blue with gold
+wave1 = rug_nodes.new('ShaderNodeTexWave')
+wave1.inputs['Scale'].default_value = 6.0
+wave1.inputs['Distortion'].default_value = 2.0
+rug_links.new(mapping.outputs['Vector'], wave1.inputs['Vector'])
+mix1 = rug_nodes.new('ShaderNodeMixRGB')
+mix1.inputs['Fac'].default_value = 0.3
+mix1.inputs['Color1'].default_value = (0.12, 0.15, 0.35, 1.0)   # deep blue
+mix1.inputs['Color2'].default_value = (0.72, 0.58, 0.30, 1.0)   # gold accent
+rug_links.new(wave1.outputs['Fac'], mix1.inputs['Fac'])
+
+# Second wave: overlay burgundy highlights
+wave2 = rug_nodes.new('ShaderNodeTexWave')
+wave2.inputs['Scale'].default_value = 4.0
+wave2.inputs['Distortion'].default_value = 3.5
+wave2.wave_type = 'RINGS'
+rug_links.new(mapping.outputs['Vector'], wave2.inputs['Vector'])
+mix2 = rug_nodes.new('ShaderNodeMixRGB')
+mix2.inputs['Fac'].default_value = 0.25
+mix2.inputs['Color2'].default_value = (0.45, 0.12, 0.15, 1.0)   # burgundy
+rug_links.new(mix1.outputs['Color'], mix2.inputs['Color1'])
+rug_links.new(wave2.outputs['Fac'], mix2.inputs['Fac'])
+
 bsdf_rug = rug_nodes["Principled BSDF"]
-rug_links.new(mix.outputs['Color'], bsdf_rug.inputs['Base Color'])
+rug_links.new(mix2.outputs['Color'], bsdf_rug.inputs['Base Color'])
 
 # ---------------------------------------------------------------------------
 # Helper: create oriented box
@@ -241,13 +264,10 @@ print("  Sitting area placed")
 # ---------------------------------------------------------------------------
 # Area rug (under the bed and sitting area)
 # ---------------------------------------------------------------------------
-rug_center_x = (BED_CENTER[0] + SITTING_CENTER[0]) / 2
-rug_center_y = (BED_CENTER[1] + SITTING_CENTER[1]) / 2
-rug_pos = (rug_center_x, rug_center_y, FLOOR_Z + 0.02*FT)  # just above floor
+# Area rug centered under the bed
+rug_pos = (BED_CENTER[0], BED_CENTER[1], FLOOR_Z + 0.02*FT)  # just above floor
 
-create_box("AreaRug", RUG_W, RUG_L + 6*FT, 0.04*FT, rug_pos, mat_rug, FACING_ANGLE)
-
-print("  Rug placed")
+create_box("AreaRug", RUG_W, RUG_L, 0.04*FT, rug_pos, mat_rug, FACING_ANGLE)
 
 print("  Rug placed")
 print("Wing B bedroom furnishing complete!")

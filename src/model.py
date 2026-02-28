@@ -8,7 +8,7 @@ from typing import Callable, Dict, Iterable, List, Tuple
 from shapely.geometry import GeometryCollection, LineString, MultiPolygon, Point, Polygon
 from shapely.ops import triangulate, unary_union
 
-from .plan import PlanGeometry
+from .plan import PlanGeometry, WING_EDGE_INDICES
 
 Point2D = Tuple[float, float]
 Point3D = Tuple[float, float, float]
@@ -211,14 +211,16 @@ def _motorcourt_and_driveway(
     s: float,
     driveway_width: float,
     driveway_length: float,
-) -> Tuple[Polygon, Polygon, Point2D, Point2D, Tuple[Point2D, Point2D, Point2D, Point2D]]:
+    flat_length: float = 0.0,
+    curve_length: float = 0.0,
+) -> Tuple[Polygon, Polygon, Point2D, Point2D, Tuple[Point2D, Point2D, Point2D, Point2D],
+           List[Polygon]]:
     cx, cy = 0.0, -math.sqrt(3.0) * s
     points: List[Point2D] = []
     for i in range(6):
         a = math.radians(i * 60.0)
         points.append((cx + s * math.cos(a), cy + s * math.sin(a)))
     # Half-hex at the rear (toward house) + triangular front extension.
-    # Vertex order here corresponds to: right-mid, rear-right, rear-left, left-mid, front-left, front-right.
     apex = _line_intersection(points[3], points[4], points[0], points[5])
     motorcourt = Polygon([points[0], points[1], points[2], points[3], apex])
 
@@ -248,7 +250,58 @@ def _motorcourt_and_driveway(
     end_center = ((end_left[0] + end_right[0]) * 0.5, (end_left[1] + end_right[1]) * 0.5)
 
     driveway = Polygon([start_left, start_right, end_right, end_left])
-    return motorcourt, driveway, start_center, end_center, (start_left, start_right, end_right, end_left)
+
+    # Extended segments beyond the ramp
+    extra_segments: List[Polygon] = []
+    nx, ny = -uy, ux  # perpendicular to driveway direction
+    half_w = driveway_width * 0.5
+
+    if flat_length > 0:
+        # Flat section continuing in same direction beyond ramp end
+        flat_end_left = (end_left[0] + ux * flat_length, end_left[1] + uy * flat_length)
+        flat_end_right = (end_right[0] + ux * flat_length, end_right[1] + uy * flat_length)
+        flat_seg = Polygon([end_left, end_right, flat_end_right, flat_end_left])
+        extra_segments.append(flat_seg)
+
+        if curve_length > 0:
+            # Curved section: 90-degree arc from flat end
+            # Curve turns to the right (positive X direction)
+            curve_center = flat_end_left  # pivot at left edge
+            n_segs = 12
+            prev_left = flat_end_left
+            prev_right = flat_end_right
+            for seg_i in range(1, n_segs + 1):
+                angle = (math.pi / 2.0) * seg_i / n_segs
+                cos_a = math.cos(angle)
+                sin_a = math.sin(angle)
+                # Rotate direction by angle
+                new_ux = ux * cos_a - uy * sin_a
+                new_uy = ux * sin_a + uy * cos_a
+                new_nx = -new_uy
+                new_ny = new_ux
+                dist = curve_length * seg_i / n_segs
+                seg_center_x = flat_end_left[0] + ux * curve_length * sin_a + (-uy) * curve_length * (1 - cos_a)
+                seg_center_y = flat_end_left[1] + uy * curve_length * sin_a + ux * curve_length * (1 - cos_a)
+                # Hmm, this is getting complex. Let me use a simpler arc approach.
+                # Arc radius = curve_length / (pi/2) so the arc length equals curve_length
+                R = curve_length * 2.0 / math.pi
+                arc_cx = flat_end_left[0] + ny * R
+                arc_cy = flat_end_left[1] - nx * R
+                base_angle = math.atan2(flat_end_left[1] - arc_cy, flat_end_left[0] - arc_cx)
+                cur_angle = base_angle - angle  # curve to the right
+                left_x = arc_cx + R * math.cos(cur_angle)
+                left_y = arc_cy + R * math.sin(cur_angle)
+                right_x = left_x + driveway_width * math.cos(cur_angle + math.pi / 2)
+                right_y = left_y + driveway_width * math.sin(cur_angle + math.pi / 2)
+                cur_left = (left_x, left_y)
+                cur_right = (right_x, right_y)
+                seg_poly = Polygon([prev_left, prev_right, cur_right, cur_left])
+                if seg_poly.is_valid and seg_poly.area > 0.1:
+                    extra_segments.append(seg_poly)
+                prev_left = cur_left
+                prev_right = cur_right
+
+    return motorcourt, driveway, start_center, end_center, (start_left, start_right, end_right, end_left), extra_segments
 
 
 def _add_terrain(
@@ -261,7 +314,10 @@ def _add_terrain(
     terrain_drop = float(config["terrain_drop"])
     s = float(config["s"])
     driveway_width = float(config.get("driveway_width", 12.0))
-    driveway_length = float(config.get("driveway_length", 45.0))
+    driveway_length = float(config.get("driveway_length", 67.5))
+    driveway_flat_length = float(config.get("driveway_flat_length", 50.0))
+    driveway_curve_length = float(config.get("driveway_curve_length", 50.0))
+    approach_slope = float(config.get("driveway_approach_slope", 0.02))
     z_base = lower_ground - terrain_drop
 
     house_points = plan.master_triangle + plan.hex_vertices + [p for wing in plan.wing_polygons.values() for p in wing]
@@ -282,30 +338,31 @@ def _add_terrain(
         ]
     )
 
-    wing_a_outer_mid = (
-        (plan.extension_vertices[5][0] + plan.extension_vertices[0][0]) * 0.5,
-        (plan.extension_vertices[5][1] + plan.extension_vertices[0][1]) * 0.5,
-    )
-    wing_b_outer_mid = (
-        (plan.extension_vertices[3][0] + plan.extension_vertices[4][0]) * 0.5,
-        (plan.extension_vertices[3][1] + plan.extension_vertices[4][1]) * 0.5,
-    )
-    y_break = (wing_a_outer_mid[1] + wing_b_outer_mid[1]) * 0.5
+    # Terrain stays flat across to the back of Wings A and B, then drops
+    wing_a_back_y = max(p[1] for p in plan.wing_polygons["A"])
+    wing_b_back_y = max(p[1] for p in plan.wing_polygons["B"])
+    y_break = max(wing_a_back_y, wing_b_back_y)
     wing_c_outer_mid = (
         (plan.extension_vertices[1][0] + plan.extension_vertices[2][0]) * 0.5,
         (plan.extension_vertices[1][1] + plan.extension_vertices[2][1]) * 0.5,
     )
     y_low = wing_c_outer_mid[1]
 
-    building_cutouts = unary_union(
-        [
-            Polygon(plan.hex_vertices),
-            Polygon(plan.wing_polygons["A"]),
-            Polygon(plan.wing_polygons["B"]),
-            Polygon(plan.wing_polygons["C"]),
-        ]
+    cutout_list = [
+        Polygon(plan.hex_vertices),
+        Polygon(plan.wing_polygons["A"]),
+        Polygon(plan.wing_polygons["B"]),
+        Polygon(plan.wing_polygons["C"]),
+    ]
+    # Side courtyards cut from terrain
+    if plan.side_courtyard_right:
+        cutout_list.append(Polygon(plan.side_courtyard_right))
+    if plan.side_courtyard_left:
+        cutout_list.append(Polygon(plan.side_courtyard_left))
+    building_cutouts = unary_union(cutout_list)
+    motorcourt, driveway, drive_start, drive_end, floor_pts, extra_drive_segs = _motorcourt_and_driveway(
+        s, driveway_width, driveway_length, driveway_flat_length, driveway_curve_length
     )
-    motorcourt, driveway, drive_start, drive_end, floor_pts = _motorcourt_and_driveway(s, driveway_width, driveway_length)
 
     def terrain_z(x: float, y: float) -> float:
         return _terrain_profile(y, y_break, y_low, upper_ground, lower_ground)
@@ -391,12 +448,24 @@ def _add_terrain(
             if isinstance(driveway_cut_terrain, MultiPolygon):
                 driveway_cut_terrain = max(driveway_cut_terrain.geoms, key=lambda g: g.area)
 
-    terrain_area = terrain_square.difference(unary_union([building_cutouts, motorcourt, driveway_cut_terrain]))
+    # Include extra driveway segments in terrain cutout
+    all_drive_cuts = [building_cutouts, motorcourt, driveway_cut_terrain]
+    for seg_poly in extra_drive_segs:
+        if seg_poly.is_valid and not seg_poly.is_empty:
+            all_drive_cuts.append(seg_poly)
+    terrain_area = terrain_square.difference(unary_union(all_drive_cuts))
 
     def driveway_z(x: float, y: float) -> float:
         proj = (x - drive_start[0]) * drive_ux + (y - drive_start[1]) * drive_uy
         t = max(0.0, min(1.0, proj / drive_len))
         return lower_ground + (driveway_end_z - lower_ground) * t
+
+    # Z for extra segments: flat at terrain level, with gentle approach slope
+    def extra_drive_z(x: float, y: float) -> float:
+        # Distance beyond the ramp end
+        proj = (x - drive_end[0]) * drive_ux + (y - drive_end[1]) * drive_uy
+        dist = max(0.0, proj)
+        return driveway_end_z - approach_slope * dist
 
     for poly in _iter_polygons(terrain_area):
         for tri in _triangles_for_polygon(poly):
@@ -495,6 +564,19 @@ def _add_terrain(
         mesh.add_triangle("concrete", tri1, component="driveway_walls")
         mesh.add_triangle("concrete", tri2, component="driveway_walls")
 
+    # Extra driveway segments (flat + curved sections)
+    for seg_poly in extra_drive_segs:
+        if not seg_poly.is_valid or seg_poly.is_empty:
+            continue
+        for tri in _triangles_for_polygon(seg_poly):
+            p0, p1, p2 = tri
+            t0 = (p0[0], p0[1], extra_drive_z(p0[0], p0[1]))
+            t1 = (p1[0], p1[1], extra_drive_z(p1[0], p1[1]))
+            t2 = (p2[0], p2[1], extra_drive_z(p2[0], p2[1]))
+            n = _triangle_normal((t0, t1, t2))
+            tri3 = (t0, t1, t2) if n[2] >= 0 else (t0, t2, t1)
+            mesh.add_triangle("concrete", tri3, component="driveway_ext_floor")
+
 
 def _add_pyramid_roof(
     mesh: ModelData,
@@ -539,6 +621,83 @@ COURTYARD_MODULES: Dict[str, Callable[[ModelData, PlanGeometry, Dict[str, float]
     "exterior_hex": build_courtyard_shared_front_edge,
     "shared_front_edge": build_courtyard_shared_front_edge,
 }
+
+
+def _add_side_courtyards(
+    mesh: ModelData,
+    plan: PlanGeometry,
+    config: Dict[str, float],
+) -> None:
+    """Build hexagonal courtyard voids between wing pairs.
+
+    Retaining walls rise 4' above surrounding terrain, open at the back
+    where terrain descends to ground level.  Floor is lawn.
+    """
+    lower_ground = float(config["lower_ground"])
+    upper_ground = float(config["upper_ground"])
+    terrain_drop = float(config["terrain_drop"])
+    s = float(config["s"])
+    retaining_wall_rise = 4.0  # feet above surrounding earth
+
+    wing_a_back_y = max(p[1] for p in plan.wing_polygons["A"])
+    wing_b_back_y = max(p[1] for p in plan.wing_polygons["B"])
+    y_break = max(wing_a_back_y, wing_b_back_y)
+    wing_c_outer_mid = (
+        (plan.extension_vertices[1][0] + plan.extension_vertices[2][0]) * 0.5,
+        (plan.extension_vertices[1][1] + plan.extension_vertices[2][1]) * 0.5,
+    )
+    y_low = wing_c_outer_mid[1]
+
+    def terrain_z(x: float, y: float) -> float:
+        return _terrain_profile(y, y_break, y_low, upper_ground, lower_ground)
+
+    for label, court_verts in [
+        ("side_court_right", plan.side_courtyard_right),
+        ("side_court_left", plan.side_courtyard_left),
+    ]:
+        if not court_verts:
+            continue
+        court_poly = Polygon(court_verts)
+        # Lawn floor at lower_ground level
+        _add_polygon_cap(mesh, "ground", court_poly, lower_ground, up=True, component=f"{label}_floor")
+
+        pts = list(court_verts)
+        for i in range(len(pts)):
+            p0 = pts[i]
+            p1 = pts[(i + 1) % len(pts)]
+            # Terrain height at each vertex
+            tz0 = terrain_z(p0[0], p0[1])
+            tz1 = terrain_z(p1[0], p1[1])
+            # Retaining wall top = terrain + 4', but not below courtyard floor
+            wall_top_0 = max(tz0 + retaining_wall_rise, lower_ground)
+            wall_top_1 = max(tz1 + retaining_wall_rise, lower_ground)
+            # Skip edges where wall height is negligible (open at back)
+            if wall_top_0 - lower_ground < 0.5 and wall_top_1 - lower_ground < 0.5:
+                continue
+            # Build wall as two triangles with varying top height
+            tri1: Triangle3D = (
+                (p0[0], p0[1], lower_ground),
+                (p1[0], p1[1], lower_ground),
+                (p1[0], p1[1], wall_top_1),
+            )
+            tri2: Triangle3D = (
+                (p0[0], p0[1], lower_ground),
+                (p1[0], p1[1], wall_top_1),
+                (p0[0], p0[1], wall_top_0),
+            )
+            # Orient normals inward (toward courtyard center)
+            cx = court_poly.centroid.x
+            cy = court_poly.centroid.y
+            nx, ny, _ = _triangle_normal(tri1)
+            face_mx = (tri1[0][0] + tri1[1][0] + tri1[2][0]) / 3.0
+            face_my = (tri1[0][1] + tri1[1][1] + tri1[2][1]) / 3.0
+            to_center_x = cx - face_mx
+            to_center_y = cy - face_my
+            if (nx * to_center_x + ny * to_center_y) < 0.0:
+                tri1 = (tri1[0], tri1[2], tri1[1])
+                tri2 = (tri2[0], tri2[2], tri2[1])
+            mesh.add_triangle("concrete", tri1, component=f"{label}_walls")
+            mesh.add_triangle("concrete", tri2, component=f"{label}_walls")
 
 
 def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
@@ -605,14 +764,31 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
             side_material="concrete",
             component=f"wing_{wing_name.lower()}_garage_floor",
         )
+        # Exterior walls concrete; atrium-facing edge glass
+        i0, i1 = WING_EDGE_INDICES[wing_name]
+        atrium_edge_garage = (plan.hex_vertices[i0], plan.hex_vertices[i1])
         _add_vertical_walls_for_polygon(
             mesh,
             wing_poly,
             garage_floor + slab,
             garage_floor + slab + ceiling,
-            "glass",
+            "concrete",
             component=f"wing_{wing_name.lower()}_garage_facade",
+            skip_edges=[atrium_edge_garage],
         )
+        # Glass wall on atrium-facing edge
+        p0, p1 = atrium_edge_garage
+        z0_w, z1_w = garage_floor + slab, garage_floor + slab + ceiling
+        tri_a: Triangle3D = ((p0[0], p0[1], z0_w), (p1[0], p1[1], z0_w), (p1[0], p1[1], z1_w))
+        tri_b: Triangle3D = ((p0[0], p0[1], z0_w), (p1[0], p1[1], z1_w), (p0[0], p0[1], z1_w))
+        nx, ny, _ = _triangle_normal(tri_a)
+        mx = (p0[0] + p1[0]) * 0.5
+        my = (p0[1] + p1[1]) * 0.5
+        if wing_poly.covers(Point(mx + nx * 0.05, my + ny * 0.05)):
+            tri_a = (tri_a[0], tri_a[2], tri_a[1])
+            tri_b = (tri_b[0], tri_b[2], tri_b[1])
+        mesh.add_triangle("glass", tri_a, component=f"wing_{wing_name.lower()}_garage_facade")
+        mesh.add_triangle("glass", tri_b, component=f"wing_{wing_name.lower()}_garage_facade")
         add_extruded_polygon(
             mesh,
             wing_poly,
@@ -676,9 +852,12 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
         component="atrium_floor",
     )
     # Wing C edge (hex v1→v2) and Wing A edge (hex v0→v5) are open to atrium
+    # Wing B edge (hex v3→v4) handled separately: concrete at bedroom level, glass elsewhere
+    wing_b_atrium_edge = (plan.hex_vertices[3], plan.hex_vertices[4])
     open_atrium_edges = [
         (plan.hex_vertices[1], plan.hex_vertices[2]),  # Wing C
         (plan.hex_vertices[0], plan.hex_vertices[5]),  # Wing A
+        wing_b_atrium_edge,                             # Wing B (added manually below)
     ]
     _add_vertical_walls_for_polygon(
         mesh,
@@ -689,9 +868,33 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
         component="atrium_facade",
         skip_edges=open_atrium_edges,
     )
+    # Wing B atrium edge: glass below bedroom, concrete at bedroom, glass above
+    p0_b, p1_b = wing_b_atrium_edge
+    bed_wall_segments = [
+        (atrium_floor + slab, master_triangle_elevation, "glass"),
+        (master_triangle_elevation + slab, master_triangle_elevation + slab + ceiling, "concrete"),
+        (master_triangle_elevation + slab + ceiling, atrium_roof_base, "glass"),
+    ]
+    for z0_seg, z1_seg, seg_mat in bed_wall_segments:
+        if z1_seg <= z0_seg:
+            continue
+        t1: Triangle3D = ((p0_b[0], p0_b[1], z0_seg), (p1_b[0], p1_b[1], z0_seg), (p1_b[0], p1_b[1], z1_seg))
+        t2: Triangle3D = ((p0_b[0], p0_b[1], z0_seg), (p1_b[0], p1_b[1], z1_seg), (p0_b[0], p0_b[1], z1_seg))
+        nx_s, ny_s, _ = _triangle_normal(t1)
+        mx_s = (p0_b[0] + p1_b[0]) * 0.5
+        my_s = (p0_b[1] + p1_b[1]) * 0.5
+        if atrium_poly.covers(Point(mx_s + nx_s * 0.05, my_s + ny_s * 0.05)):
+            t1 = (t1[0], t1[2], t1[1])
+            t2 = (t2[0], t2[2], t2[1])
+        comp = "atrium_facade" if seg_mat == "glass" else "bedroom_accent_wall"
+        mesh.add_triangle(seg_mat, t1, component=comp)
+        mesh.add_triangle(seg_mat, t2, component=comp)
     _add_pyramid_roof(mesh, plan.hex_vertices, atrium_roof_base, atrium_roof_rise, "glass", component="atrium_roof")
 
     courtyard_module(mesh, plan, config)
+
+    # Side courtyards between wing pairs
+    _add_side_courtyards(mesh, plan, config)
 
     return mesh
 

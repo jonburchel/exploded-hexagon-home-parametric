@@ -29,6 +29,8 @@ class PlanGeometry:
     master_triangle: List[Point2D]
     atrium_front_edge: Tuple[Point2D, Point2D]
     courtyard_polygon: List[Point2D]
+    side_courtyard_right: List[Point2D] = None  # between Wing A and C
+    side_courtyard_left: List[Point2D] = None   # between Wing B and C
 
     @property
     def atrium_polygon(self) -> Polygon:
@@ -121,6 +123,28 @@ def make_exterior_hex_courtyard(s: float) -> List[Point2D]:
     for i in range(6):
         angle = math.radians(i * 60.0)
         points.append((center[0] + s * math.cos(angle), center[1] + s * math.sin(angle)))
+    return _ensure_ccw(points)
+
+
+def make_side_courtyard_hex(s: float, side: str) -> List[Point2D]:
+    """Create a hexagonal courtyard between wing pairs.
+
+    side='right' for between Wing A and C (edge 0→1 direction).
+    side='left' for between Wing B and C (edge 2→3 direction).
+    """
+    sqrt3 = math.sqrt(3.0)
+    if side == "right":
+        # Between A and C: direction of edge 0→1 midpoint (30° from center)
+        cx = 1.5 * s
+        cy = sqrt3 * s * 0.5
+    else:
+        # Between B and C: direction of edge 2→3 midpoint (150° from center)
+        cx = -1.5 * s
+        cy = sqrt3 * s * 0.5
+    points: List[Point2D] = []
+    for i in range(6):
+        angle = math.radians(i * 60.0)
+        points.append((cx + s * math.cos(angle), cy + s * math.sin(angle)))
     return _ensure_ccw(points)
 
 
@@ -220,6 +244,10 @@ def build_plan(config: Dict[str, float]) -> PlanGeometry:
     else:
         raise ValueError(f"Unknown courtyard module: {courtyard_module_name}")
 
+    # Side courtyards between wing pairs
+    side_courtyard_right = make_side_courtyard_hex(s, "right")
+    side_courtyard_left = make_side_courtyard_hex(s, "left")
+
     return PlanGeometry(
         hex_vertices=hex_vertices,
         extension_vertices=extension_vertices,
@@ -227,5 +255,7 @@ def build_plan(config: Dict[str, float]) -> PlanGeometry:
         master_triangle=master_triangle,
         atrium_front_edge=atrium_front_edge,
         courtyard_polygon=courtyard_polygon,
+        side_courtyard_right=side_courtyard_right,
+        side_courtyard_left=side_courtyard_left,
     )
 

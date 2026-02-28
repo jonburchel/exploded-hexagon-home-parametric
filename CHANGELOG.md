@@ -1,5 +1,33 @@
 # CHANGELOG
 
+## Session 7 - Big Update: Terrain, Courtyards, Driveway, Walls, Textures
+
+### Geometry / Model Changes (model.py, plan.py)
+- **Wing A/B lower level walls**: Exterior-facing walls now concrete (were glass). Atrium-facing edge remains glass.
+- **Terrain profile**: Terrain stays flat across to the back of Wings A and B, then steeply descends to ground level. Previously sloped from the wing outer midpoints.
+- **Side courtyard voids**: Added hexagonal courtyard voids between Wing B/C and Wing A/C. Same hex size as atrium. Retaining walls rise 4' above surrounding terrain, open at the back where terrain meets ground level. Floor is lawn.
+- **Driveway extension**: Ramp extended 50% (67.5'). Added 50' flat section beyond crest, then 50' curved section turning 90 degrees. Terrain gently slopes down on approach (2% grade) creating a crest that hides the entry courtyard.
+- **Bedroom accent wall**: The hex edge 3→4 (Wing B atrium boundary) at the master triangle level is now concrete instead of glass, creating an opaque wall between the bedroom and atrium.
+
+### Furniture (furnish_wingb.py)
+- Bed and nightstands pushed against the interior wall (hex edge 3→4)
+- Sitting area moved ~6' further toward the triangle tip for better spacing
+- Rug resized (9'×8'), recentered under bed, recolored with jewel tones (deep blue, gold, burgundy)
+- Duplicate print statement removed
+
+### New Scripts
+- **src/generate_textures.py**: Gemini API texture generation for all materials (marble Star of David, driveway, concrete, plant wall, accent wall, rug, sky, lawn). Requires GEMINI_API_KEY.
+- **src/apply_textures.py**: Blender script to apply generated textures to scene materials with proper UV mapping and scaling.
+- **src/clip_check.py**: Blender script for full-scene AABB clipping check on all plants and furniture, with auto-fix.
+
+### Config Changes
+- `driveway_length`: 45 → 67.5
+- Added: `driveway_flat_length: 50`, `driveway_curve_length: 50`, `driveway_approach_slope: 0.02`
+
+### Blender (blender_startup.py)
+- Added "Side Courtyards" collection
+- Added bedroom_accent_wall to collection map
+
 ## Session 6 - Feet-to-meters conversion
 - **BREAKING**: GLB export now converts all geometry from feet to meters (multiply by 0.3048).
   This fixes Blender walk navigation so 1.7m walk height = actual 5'6" eye level.

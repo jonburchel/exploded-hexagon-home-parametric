@@ -71,6 +71,7 @@ col_triangle = get_or_create_collection("Master Triangle (upper)", col_building)
 col_terrain = get_or_create_collection("Terrain & Ground", col_building)
 col_garden = get_or_create_collection("Atrium Garden")
 col_bedroom = get_or_create_collection("Wing B Bedroom")
+col_side_courts = get_or_create_collection("Side Courtyards", col_building)
 col_lighting = get_or_create_collection("Lighting")
 
 # Sort ALL objects into collections by name.
@@ -80,6 +81,7 @@ COLLECTION_MAP = {
     # Structural (from model.py component names)
     "atrium_f": col_atrium,     # atrium_floor, atrium_facade
     "atrium_r": col_atrium,     # atrium_roof
+    "bedroom_accent_wall": col_bedroom,  # opaque wall between bedroom and atrium
     "wing_a": col_wing_a,
     "wing_b": col_wing_b,
     "wing_c": col_wing_c,
@@ -90,6 +92,7 @@ COLLECTION_MAP = {
     "driveway": col_terrain,
     "courtyard": col_terrain,
     "motorcourt": col_terrain,
+    "side_court": col_side_courts,
     "ClearingFloor": col_garden,
     "Path_": col_garden,
     # Garden elements
