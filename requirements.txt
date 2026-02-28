@@ -2,3 +2,6 @@ numpy
 shapely
 watchdog
 
+# Optional: AI-generated textures via Gemini API
+# pip install google-genai
+# Requires GEMINI_API_KEY environment variable

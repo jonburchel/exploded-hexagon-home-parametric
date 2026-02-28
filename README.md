@@ -26,6 +26,29 @@ Install dependencies:
 python -m pip install -r requirements.txt
 ```
 
+### Gemini Image Generation (optional, for AI-generated textures)
+
+To generate photorealistic textures and concept art via the Gemini API:
+
+```powershell
+pip install google-genai
+```
+
+Set your API key (get one from https://aistudio.google.com/apikey):
+
+```powershell
+$env:GEMINI_API_KEY = "your-key-here"
+```
+
+Generate textures:
+
+```powershell
+python .github/skills/architecture-3d/gemini_image_gen.py texture --material "polished concrete" -o assets/textures/concrete_basecolor.png
+python .github/skills/architecture-3d/gemini_image_gen.py texture --material "polished concrete" --normal -o assets/textures/concrete_normal.png
+```
+
+See `.github/skills/architecture-3d/gemini_image_gen.py --help` for all options (concept art, image editing, model selection, resolution control).
+
 Verify watchdog (needed for `auto` mode):
 
 ```powershell

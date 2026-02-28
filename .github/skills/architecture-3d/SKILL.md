@@ -93,9 +93,9 @@ Only use in-place editing when you are confident the change is purely spatial/vi
 
 ---
 
-## 2. Model Routing Preferences
+## 2. Model Routing via Sub-Agent Delegation
 
-Three AI models are available. Each excels at different subtasks:
+Three AI models are available. **Delegate subtasks to the best model automatically** using the `task` tool with the `model` parameter. Do NOT ask the user to switch models manually.
 
 | Model ID | Strengths | Use For |
 |----------|-----------|---------|
@@ -103,39 +103,57 @@ Three AI models are available. Each excels at different subtasks:
 | `claude-opus-4.6-fast` | Code architecture, planning, API knowledge | Blender `bpy` scripting, pipeline design, refactoring, validation logic |
 | `gemini-3-pro-preview` | Multimodal vision, image generation, visual analysis | Texture map generation, screenshot analysis, visual QA, design critique from images |
 
-### Detailed Routing Table
+### How to Delegate
 
-| Task Type | Preferred Model | Fallback | Rationale |
-|-----------|----------------|----------|-----------|
-| Geometric/spatial reasoning (vertex math, normals, winding) | GPT-5.3-Codex | Gemini 3 Pro | Best pure spatial reasoning for coordinate geometry |
-| Planning, code architecture, refactoring | Claude Opus 4.6 | GPT-5.3-Codex | Strong at code structure, modularity, naming |
-| Debugging geometry bugs (missing faces, wrong normals) | GPT-5.3-Codex | Claude Opus 4.6 | Can reason about 3D coordinate systems reliably |
-| Material/texture decisions, design critique | Gemini 3 Pro | Claude Opus 4.6 | Vision capabilities enable reasoning from screenshots |
-| Texture map generation (tileable, PBR) | Gemini 3 Pro | N/A | Best-in-class image generation with Gemini key |
-| Visual QA ("does this look right?") | Gemini 3 Pro | Claude Opus 4.6 | Can analyze screenshots and compare to intent |
-| Blender Python scripting (`bpy` API) | Claude Opus 4.6 | GPT-5.3-Codex | Better at API lookups and code generation |
-| Validation/testing logic | Claude Opus 4.6 | GPT-5.3-Codex | Strong at assertion design and edge cases |
-| Landscape/site planning | Gemini 3 Pro | Claude Opus 4.6 | Multimodal reasoning about spatial relationships in images |
-| Walkthrough animation choreography | Claude Opus 4.6 | GPT-5.3-Codex | Good at sequencing and narrative flow |
+Use the `task` tool with `agent_type: "general-purpose"` and the `model` parameter to route work:
+
+```
+# For spatial/geometry tasks, delegate to GPT-5.3-Codex:
+task(agent_type="general-purpose", model="gpt-5.3-codex",
+     prompt="Compute the vertex positions for a flat-top hexagon with side length 23ft...")
+
+# For Blender scripting, use Claude Opus:
+task(agent_type="general-purpose", model="claude-opus-4.6-fast",
+     prompt="Write a bpy script that sets up Cycles materials for glass curtain walls...")
+
+# For visual analysis, use Gemini:
+task(agent_type="general-purpose", model="gemini-3-pro-preview",
+     prompt="Analyze this screenshot and identify any visual issues with the rendering...")
+```
+
+### Routing Table
+
+| Task Type | Delegate To | Fallback |
+|-----------|-------------|----------|
+| Geometric/spatial reasoning (vertex math, normals, winding) | `gpt-5.3-codex` | `gemini-3-pro-preview` |
+| Planning, code architecture, refactoring | `claude-opus-4.6-fast` | `gpt-5.3-codex` |
+| Debugging geometry bugs (missing faces, wrong normals) | `gpt-5.3-codex` | `claude-opus-4.6-fast` |
+| Material/texture decisions, design critique | `gemini-3-pro-preview` | `claude-opus-4.6-fast` |
+| Texture/image generation | Use `gemini_image_gen.py` (see Section 5) | N/A |
+| Visual QA ("does this look right?") | `gemini-3-pro-preview` | `claude-opus-4.6-fast` |
+| Blender Python scripting (`bpy` API) | `claude-opus-4.6-fast` | `gpt-5.3-codex` |
+| Validation/testing logic | `claude-opus-4.6-fast` | `gpt-5.3-codex` |
+| Landscape/site planning | `gemini-3-pro-preview` | `claude-opus-4.6-fast` |
+| Walkthrough animation choreography | `claude-opus-4.6-fast` | `gpt-5.3-codex` |
 
 ### Automatic Fallback Protocol
-If the current model produces incorrect results after **TWO** attempts:
-1. Note the specific failure pattern (e.g., "wrong normal direction", "missed edge case", "bad UV mapping")
-2. Recommend switching to the fallback model with an explicit command:
-   - `"This spatial reasoning task may benefit from switching. Try /model gpt-5.3-codex"`
-   - `"This visual/texture task would benefit from Gemini. Try /model gemini-3-pro-preview"`
-   - `"This code architecture task needs better planning. Try /model claude-opus-4.6-fast"`
-3. Include failure context so the next model can learn from the mistakes
-4. If the fallback ALSO fails after two attempts, try the third model before giving up
+If a delegated sub-agent produces incorrect results after **TWO** attempts:
+1. Note the specific failure pattern
+2. Re-delegate to the fallback model automatically (no user intervention needed)
+3. Include failure context in the new delegation prompt so the fallback model learns from mistakes
+4. If the fallback ALSO fails after two attempts, try the third model
+5. If all three fail, surface the problem to the user
 
-### Three-Model Rotation
 ```
-Primary fails x2 → Recommend fallback
-Fallback fails x2 → Recommend third option
-Third fails x2  → Surface the problem to the user for manual guidance
+Primary fails x2 → Auto-delegate to fallback model
+Fallback fails x2 → Auto-delegate to third model
+Third fails x2   → Surface the problem to the user for manual guidance
 ```
 
-> **Note**: Model switching requires the user to type `/model <model-id>` in Copilot CLI. The skill recommends but cannot auto-switch. Always surface recommendations prominently with the exact command to type.
+### When NOT to Delegate
+- Simple, fast tasks (grep, file reads, small edits): just do them directly
+- Tasks that require the current session's live state (e.g., remote console commands to running Blender)
+- Tasks where context from the current conversation is critical and hard to summarize
 
 ---
 
@@ -259,30 +277,92 @@ The generation pipeline follows this order:
 
 ## 5. Texture Maps & Image Generation
 
-### Procedural Textures (Blender Nodes)
+### CRITICAL: Image Generation in CLI
+
+Copilot CLI **cannot generate images directly in conversation**. All image generation
+must go through Python scripts that call the Gemini API. The helper script is at:
+`.github/skills/architecture-3d/gemini_image_gen.py`
+
+**Prerequisites:**
+```bash
+pip install google-genai Pillow
+# Set your API key (get one from https://aistudio.google.com/apikey)
+export GEMINI_API_KEY="your-key-here"   # Linux/Mac
+$env:GEMINI_API_KEY = "your-key-here"   # PowerShell
+```
+
+### Using the Image Generation Helper
+
+**Generate a seamless tileable texture:**
+```bash
+python .github/skills/architecture-3d/gemini_image_gen.py texture \
+    --material "polished concrete with visible aggregate" \
+    -o assets/textures/concrete_basecolor.png
+
+# Generate matching normal map:
+python .github/skills/architecture-3d/gemini_image_gen.py texture \
+    --material "polished concrete with visible aggregate" \
+    --normal -o assets/textures/concrete_normal.png
+```
+
+**Generate concept art / reference images:**
+```bash
+python .github/skills/architecture-3d/gemini_image_gen.py concept \
+    --description "modern tropical atrium with glass roof, palm trees, stone fountain" \
+    --style "architectural visualization, photorealistic" \
+    -o concept_atrium.png
+```
+
+**Generate any free-form image:**
+```bash
+python .github/skills/architecture-3d/gemini_image_gen.py generate \
+    --prompt "seamless dark walnut hardwood flooring, top-down view" \
+    --model gemini-2.5-flash-preview-image-generation \
+    -o assets/textures/walnut_basecolor.png
+```
+
+**Edit an existing image:**
+```bash
+python .github/skills/architecture-3d/gemini_image_gen.py edit \
+    --input renders/latest/front.png \
+    --instruction "make the sky more dramatic with sunset colors" \
+    -o renders/latest/front_sunset.png
+```
+
+### Available Gemini Models for Image Generation
+
+| Model | Quality | Speed | Max Resolution | Cost |
+|-------|---------|-------|---------------|------|
+| `gemini-2.0-flash-exp` | Good | Fast (~3s) | 1024x1024 | Low |
+| `gemini-2.5-flash-preview-image-generation` | Better | Medium | 1024x1024 | Medium |
+| `gemini-3-pro-image-preview` | Best | Slower | 4096x4096 | Higher |
+
+### Programmatic Usage (from Python scripts)
+```python
+# Import the helper directly
+import sys
+sys.path.insert(0, ".github/skills/architecture-3d")
+from gemini_image_gen import generate_texture, generate_image, edit_image
+
+# Generate a texture
+generate_texture("travertine marble", output_path="assets/textures/travertine_basecolor.png")
+generate_texture("travertine marble", normal=True, output_path="assets/textures/travertine_normal.png")
+
+# Generate a concept image
+generate_image("modern hexagonal house with glass walls in a forest",
+               output_path="concept.png")
+
+# Edit a render
+edit_image("renders/latest/iso.png", "add dramatic storm clouds",
+           output_path="renders/latest/iso_stormy.png")
+```
+
+### Procedural Textures (Blender Nodes, no API needed)
 For materials that don't need photo-realism, use Blender's procedural textures:
-- **Concrete**: Noise Texture → ColorRamp (gray range) → Base Color, plus Bump node
-- **Wood**: Wave Texture (bands) + Noise (grain) → Mix → Base Color
+- **Concrete**: Noise Texture -> ColorRamp (gray range) -> Base Color, plus Bump node
+- **Wood**: Wave Texture (bands) + Noise (grain) -> Mix -> Base Color
 - **Glass**: Principled BSDF with Transmission = 0.9, Roughness = 0.05
-- **Grass/Ground**: Voronoi (cells) + Noise → Green color ramp → Base Color + Displacement
-
-### AI-Generated Texture Prompts (Gemini)
-When photorealistic textures are needed, generate them with Gemini image generation.
-Use structured prompts:
-
-```
-Generate a seamless tileable texture map for [MATERIAL].
-Requirements:
-- Resolution: 2048x2048 pixels
-- Seamlessly tileable in both X and Y directions
-- Photorealistic quality
-- Even lighting, no shadows or directional light
-- [SPECIFIC DETAILS: e.g., "polished concrete with subtle aggregate visible", 
-  "tropical hardwood flooring with warm honey tones"]
-Output: A single texture image suitable for use as a Base Color map in PBR rendering.
-```
-
-For normal maps, add: "Generate a corresponding normal map for the above texture, showing surface relief detail."
+- **Grass/Ground**: Voronoi (cells) + Noise -> Green color ramp -> Base Color + Displacement
 
 ### Applying Textures in the Pipeline
 1. Save generated textures to `assets/textures/`
@@ -339,10 +419,20 @@ Use the web search tool to find free CC0/CC-BY assets from:
 - **CGTrader/TurboSquid**: Filter by "free" for basic assets
 
 #### AI-Generated Assets via Gemini
-For custom assets not available in libraries, use Gemini to generate:
-- Reference images for modeling guidance
-- Texture maps (see Section 5)
-- Concept art for design direction
+For custom textures, concept art, and reference images not available in libraries:
+```bash
+# Generate concept art for a room layout
+python .github/skills/architecture-3d/gemini_image_gen.py concept \
+    --description "modern minimalist bedroom with floor-to-ceiling windows overlooking forest" \
+    -o assets/reference/bedroom_concept.png
+
+# Generate a custom texture
+python .github/skills/architecture-3d/gemini_image_gen.py texture \
+    --material "moss-covered stone wall" \
+    -o assets/textures/moss_stone_basecolor.png
+```
+> **Important**: Gemini generates 2D images only, not 3D models. Use generated images as
+> textures applied to geometry, or as reference/concept art for design direction.
 
 ### Asset Import Pipeline
 ```python
@@ -579,6 +669,9 @@ follow.keyframe_insert('offset_factor', frame=bpy.context.scene.frame_end)
 ```
 project-root/
   .github/skills/architecture-3d/   # This skill
+    SKILL.md                         # Skill definition (this file)
+    gemini_image_gen.py              # Gemini API image generation helper
+    blender_helpers.py               # Blender utility functions
   archive/                           # Old outputs (never delete)
   assets/                            # Reference SVGs, textures, HDRIs
     textures/                        # Generated/sourced texture maps
@@ -597,16 +690,19 @@ project-root/
     render_blender.py                # Headless rendering
     blender_live_session.py          # Live viewport sync
     blender_remote.py                # TCP remote console server (port 9876)
+    blender_startup.py               # Blender startup (GLB import, materials, file-watch)
+    fix_render.py                    # Sky/lighting/render setup
     orchestration_policy.py          # Execution mode routing
     main.py                          # CLI entry point
     ui.py                            # Interactive parameter UI
-  out/                               # Generated outputs
+  out/                               # Generated outputs (gitignored)
   renders/                           # Render outputs
     latest/                          # Most recent renders
   requirements.txt
   README.md
   CHANGELOG.md
   Makefile                           # Quick regen commands
+  Send-Blender.ps1                   # PowerShell client for remote console
 ```
 
 ### Naming Conventions
