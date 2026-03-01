@@ -1140,23 +1140,31 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
                                 wt_conc, w_poly,
                                 component=f"wing_{wing_name.lower()}_atrium_wall")
 
-    # Atrium floor slab with side walls.
+    # Atrium floor slab with inward-facing side walls.
     # Polygon buffered outward by half wall thickness so marble extends under walls.
-    # Side walls seal the slab edge on ALL hex edges (wing and non-wing),
-    # preventing the visible gap between marble edge and structural walls.
+    # Side walls seal the slab edge, preventing the gap between marble edge and
+    # structural walls. Faces are explicitly wound to face INWARD (toward atrium
+    # center) so they render correctly from inside the atrium.
     half_wt = wt_conc / 2.0
     atrium_floor_poly = atrium_poly.buffer(half_wt, join_style=2)  # mitre join
-    add_extruded_polygon(
-        mesh,
-        atrium_floor_poly,
-        atrium_floor,
-        atrium_floor + slab,
-        top_material="marble",
-        bottom_material="concrete",
-        side_material="concrete",
-        component="atrium_floor",
-        wall_thickness=0,
-    )
+    _add_polygon_cap(mesh, "marble", atrium_floor_poly, atrium_floor + slab,
+                     up=True, component="atrium_floor")
+    _add_polygon_cap(mesh, "concrete", atrium_floor_poly, atrium_floor,
+                     up=False, component="atrium_floor")
+    # Inward-facing side walls (CCW ring gives inward normals with this winding)
+    _ring = list(atrium_floor_poly.exterior.coords)
+    if _ring and _ring[0] == _ring[-1]:
+        _ring = _ring[:-1]
+    _z0, _z1 = atrium_floor, atrium_floor + slab
+    for _i in range(len(_ring)):
+        _p0 = _ring[_i]
+        _p1 = _ring[(_i + 1) % len(_ring)]
+        mesh.add_triangle("concrete",
+            ((_p0[0], _p0[1], _z0), (_p0[0], _p0[1], _z1), (_p1[0], _p1[1], _z1)),
+            component="atrium_floor")
+        mesh.add_triangle("concrete",
+            ((_p0[0], _p0[1], _z0), (_p1[0], _p1[1], _z1), (_p1[0], _p1[1], _z0)),
+            component="atrium_floor")
 
     # Wing C edge (hex v1→v2) and Wing A edge (hex v0→v5) are open to atrium
     # Wing B edge (hex v3→v4) handled separately: concrete at bedroom level, glass elsewhere
