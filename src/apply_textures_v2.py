@@ -90,15 +90,28 @@ print("=" * 60)
 print("apply_textures_v2: assigning materials by object name")
 print("=" * 60)
 
-# 1. Marble floor (atrium + motorcourt)
+# 1. Marble floor (atrium only)
 print("\n--- Marble floor ---")
 marble_img = _load_img("atrium_marble_star_basecolor.png")
 marble_mat = _make_textured_mat("MarbleFloor", marble_img,
                                  projection="FLAT", scale=(1.0, 1.0, 1.0),
                                  roughness=0.15, metallic=0.0)
-for n in ("atrium_floor", "motorcourt_floor"):
+for n in ("atrium_floor",):
     ok = _assign_mat(n, marble_mat)
     print(f"  {n}: {'OK' if ok else 'not found'}")
+
+# 1b. Motorcourt floor (ouroboros tile)
+print("\n--- Motorcourt floor (ouroboros) ---")
+ouro_img = _load_img("ouroboros_courtyard_basecolor.png")
+if ouro_img:
+    ouro_mat = _make_textured_mat("OuroborosFloor", ouro_img,
+                                   projection="FLAT", scale=(1.0, 1.0, 1.0),
+                                   roughness=0.2, metallic=0.0)
+    ok = _assign_mat("motorcourt_floor", ouro_mat)
+    print(f"  motorcourt_floor: {'OK' if ok else 'not found'}")
+else:
+    ok = _assign_mat("motorcourt_floor", marble_mat)
+    print(f"  motorcourt_floor: fallback to marble")
 
 # 2. Driveway concrete
 print("\n--- Driveway ---")

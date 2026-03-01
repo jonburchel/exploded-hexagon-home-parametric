@@ -1044,10 +1044,15 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
     garage_floor = lower_ground
     for wing_name in ("A", "B"):
         wing_poly = Polygon(plan.wing_polygons[wing_name])
+        i0, i1 = WING_EDGE_INDICES[wing_name]
+        atrium_edge_garage = (plan.hex_vertices[i0], plan.hex_vertices[i1])
+
+        # Solid concrete foundation from atrium floor to garage walking surface
+        # Creates walls on ALL edges (including atrium-facing) to seal completely
         add_extruded_polygon(
             mesh,
             wing_poly,
-            garage_floor,
+            atrium_floor,
             garage_floor + slab,
             top_material="concrete",
             bottom_material="concrete",
@@ -1055,20 +1060,6 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
             component=f"wing_{wing_name.lower()}_garage_floor",
             wall_thickness=wt_conc,
         )
-        # Concrete walls from atrium floor up to garage floor (closes gap under wings)
-        i0, i1 = WING_EDGE_INDICES[wing_name]
-        atrium_edge_garage = (plan.hex_vertices[i0], plan.hex_vertices[i1])
-        if garage_floor > atrium_floor + slab:
-            _add_vertical_walls_for_polygon(
-                mesh,
-                wing_poly,
-                atrium_floor + slab,
-                garage_floor,
-                "concrete",
-                component=f"wing_{wing_name.lower()}_atrium_wall",
-                skip_edges=[atrium_edge_garage],
-                wall_thickness=wt_conc,
-            )
         # All garage walls concrete (including atrium-facing edge)
         _add_vertical_walls_for_polygon(
             mesh,

@@ -130,7 +130,7 @@ High quality, professional rendering. No text or watermarks."""
     return generate_image(prompt, size=size, output_path=output_path)
 
 
-def edit_image(image_path, instruction, model="gemini-2.5-flash-preview-image-generation", output_path=None):
+def edit_image(image_path, instruction, model="gemini-2.5-flash-image", output_path=None):
     """Edit an existing image with text instructions.
 
     Args:
@@ -306,7 +306,7 @@ def main():
     gen = sub.add_parser("generate", help="Generate an image from a text prompt")
     gen.add_argument("--prompt", required=True, help="Text description")
     gen.add_argument("--size", default="1024x1024", help="Resolution (e.g., 1024x1024, 2048x2048)")
-    gen.add_argument("--model", default="gemini-2.0-flash-exp", help="Gemini model ID")
+    gen.add_argument("--model", default="gemini-2.5-flash-image", help="Gemini model ID")
     gen.add_argument("--output", "-o", required=True, help="Output file path")
 
     # Generate tileable texture
@@ -314,7 +314,7 @@ def main():
     tex.add_argument("--material", required=True, help="Material name (e.g., 'polished concrete')")
     tex.add_argument("--normal", action="store_true", help="Generate normal map instead of base color")
     tex.add_argument("--size", default="2048x2048", help="Resolution")
-    tex.add_argument("--model", default="gemini-2.5-flash-preview-image-generation")
+    tex.add_argument("--model", default="gemini-2.5-flash-image")
     tex.add_argument("--output", "-o", help="Output file path (auto-named if omitted)")
 
     # Generate concept art
@@ -328,7 +328,7 @@ def main():
     ed = sub.add_parser("edit", help="Edit an image with text instructions")
     ed.add_argument("--input", required=True, help="Input image path")
     ed.add_argument("--instruction", required=True, help="What to change")
-    ed.add_argument("--model", default="gemini-2.5-flash-preview-image-generation")
+    ed.add_argument("--model", default="gemini-2.5-flash-image")
     ed.add_argument("--output", "-o", help="Output path (defaults to input_edited.ext)")
 
     # Refine a prompt using Gemini
@@ -341,7 +341,7 @@ def main():
     seam = sub.add_parser("seamless", help="Generate a seamless tileable texture (3-step offset trick)")
     seam.add_argument("--material", required=True, help="Material name (e.g., 'polished concrete')")
     seam.add_argument("--size", default="2048x2048", help="Resolution")
-    seam.add_argument("--model", default="gemini-2.5-flash-preview-image-generation")
+    seam.add_argument("--model", default="gemini-2.5-flash-image")
     seam.add_argument("--output", "-o", help="Output file path (auto-named if omitted)")
 
     args = parser.parse_args()
