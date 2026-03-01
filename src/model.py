@@ -1151,6 +1151,26 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
                      up=True, component="atrium_floor")
     _add_polygon_cap(mesh, "concrete", atrium_floor_poly, atrium_floor,
                      up=False, component="atrium_floor")
+
+    # Concrete foundation band on non-wing hex edges below the glass facade.
+    # The glass facade starts at atrium_floor + slab (z=-1), but the atrium slab
+    # goes down to atrium_floor (z=-2). Without this band, there's a 1ft gap
+    # on edges v0→v1, v2→v3, and v4→v5 where you can see out.
+    wing_edge_set = set()
+    for _wn, (wi, wj) in WING_EDGE_INDICES.items():
+        wing_edge_set.add((wi, wj))
+        wing_edge_set.add((wj, wi))
+    for i in range(6):
+        j = (i + 1) % 6
+        if (i, j) in wing_edge_set:
+            continue
+        p0 = plan.hex_vertices[i]
+        p1 = plan.hex_vertices[j]
+        _add_solid_wall_edge(mesh, "concrete", p0, p1,
+                             atrium_floor, atrium_floor + slab,
+                             wt_conc, atrium_poly,
+                             component="atrium_floor")
+
     # Wing C edge (hex v1→v2) and Wing A edge (hex v0→v5) are open to atrium
     # Wing B edge (hex v3→v4) handled separately: concrete at bedroom level, glass elsewhere
     wing_b_atrium_edge = (plan.hex_vertices[3], plan.hex_vertices[4])
