@@ -122,8 +122,10 @@ concrete_objs = [
     "side_court_left_walls", "side_court_right_walls",
     "wing_a_floor", "wing_a_roof_slab",
     "wing_a_garage_floor", "wing_a_garage_roof_slab",
+    "wing_a_garage_facade",  # lower level = garage/utility, concrete walls
     "wing_b_floor", "wing_b_roof_slab",
     "wing_b_garage_floor", "wing_b_garage_roof_slab",
+    "wing_b_garage_facade",  # lower level = garage/utility, concrete walls
     "wing_c_floor", "wing_c_roof_slab",
     "master_triangle_floor", "master_triangle_roof_slab",
 ]
@@ -164,8 +166,8 @@ glass_mat.use_backface_culling = False
 glass_objs = [
     "atrium_facade", "atrium_roof",
     "master_triangle_facade",
-    "wing_a_facade", "wing_a_garage_facade",
-    "wing_b_facade", "wing_b_garage_facade",
+    "wing_a_facade",
+    "wing_b_facade",
     "wing_c_facade",
 ]
 for n in glass_objs:
