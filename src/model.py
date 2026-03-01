@@ -105,6 +105,8 @@ def _add_solid_wall_edge(
     wall_thickness: float,
     interior_test_polygon: Polygon,
     component: str = "model",
+    cap_top: bool = True,
+    cap_bottom: bool = True,
 ) -> None:
     """Create a solid wall box for a single edge with real thickness."""
     edge_dx = p1[0] - p0[0]
@@ -125,13 +127,18 @@ def _add_solid_wall_edge(
         nx, ny = -nx, -ny  # flip so (nx, ny) points outward
 
     half_t = wall_thickness / 2.0
+    edge_ux = edge_dx / edge_len
+    edge_uy = edge_dy / edge_len
+    end_ext = half_t
+    q0 = (p0[0] - edge_ux * end_ext, p0[1] - edge_uy * end_ext)
+    q1 = (p1[0] + edge_ux * end_ext, p1[1] + edge_uy * end_ext)
 
     # Outer vertices (offset outward)
-    o0 = (p0[0] + nx * half_t, p0[1] + ny * half_t)
-    o1 = (p1[0] + nx * half_t, p1[1] + ny * half_t)
+    o0 = (q0[0] + nx * half_t, q0[1] + ny * half_t)
+    o1 = (q1[0] + nx * half_t, q1[1] + ny * half_t)
     # Inner vertices (offset inward)
-    i0 = (p0[0] - nx * half_t, p0[1] - ny * half_t)
-    i1 = (p1[0] - nx * half_t, p1[1] - ny * half_t)
+    i0 = (q0[0] - nx * half_t, q0[1] - ny * half_t)
+    i1 = (q1[0] - nx * half_t, q1[1] - ny * half_t)
 
     def _quad(a: Point3D, b: Point3D, c: Point3D, d: Point3D, out: Point3D) -> None:
         """Add a quad (a,b,c,d) with normals facing toward 'out' direction."""
@@ -156,19 +163,19 @@ def _add_solid_wall_edge(
           (i0[0], i0[1], z1), (i1[0], i1[1], z1),
           (-nx, -ny, 0.0))
 
-    # Top cap (normal points up)
-    _quad((o0[0], o0[1], z1), (o1[0], o1[1], z1),
-          (i1[0], i1[1], z1), (i0[0], i0[1], z1),
-          (0.0, 0.0, 1.0))
+    if cap_top:
+        # Top cap (normal points up)
+        _quad((o0[0], o0[1], z1), (o1[0], o1[1], z1),
+              (i1[0], i1[1], z1), (i0[0], i0[1], z1),
+              (0.0, 0.0, 1.0))
 
-    # Bottom cap (normal points down)
-    _quad((i0[0], i0[1], z0), (i1[0], i1[1], z0),
-          (o1[0], o1[1], z0), (o0[0], o0[1], z0),
-          (0.0, 0.0, -1.0))
+    if cap_bottom:
+        # Bottom cap (normal points down)
+        _quad((i0[0], i0[1], z0), (i1[0], i1[1], z0),
+              (o1[0], o1[1], z0), (o0[0], o0[1], z0),
+              (0.0, 0.0, -1.0))
 
     # Left end cap (at p0, normal along -edge direction)
-    edge_ux = edge_dx / edge_len
-    edge_uy = edge_dy / edge_len
     _quad((o0[0], o0[1], z0), (o0[0], o0[1], z1),
           (i0[0], i0[1], z1), (i0[0], i0[1], z0),
           (-edge_ux, -edge_uy, 0.0))
@@ -189,6 +196,8 @@ def _add_wall_band_ring(
     component: str = "model",
     skip_edges: List[Tuple[Point2D, Point2D]] | None = None,
     wall_thickness: float = 0.0,
+    cap_top: bool = True,
+    cap_bottom: bool = True,
 ) -> None:
     pts = ring_coords[:-1] if ring_coords and ring_coords[0] == ring_coords[-1] else ring_coords
     if len(pts) < 2 or z1 <= z0:
@@ -214,7 +223,8 @@ def _add_wall_band_ring(
 
         if wall_thickness > 0:
             _add_solid_wall_edge(mesh, material, p0, p1, z0, z1,
-                                wall_thickness, interior_test_polygon, component)
+                                wall_thickness, interior_test_polygon, component,
+                                cap_top=cap_top, cap_bottom=cap_bottom)
         else:
             tri1: Triangle3D = ((p0[0], p0[1], z0), (p1[0], p1[1], z0), (p1[0], p1[1], z1))
             tri2: Triangle3D = ((p0[0], p0[1], z0), (p1[0], p1[1], z1), (p0[0], p0[1], z1))
@@ -241,10 +251,184 @@ def _add_vertical_walls_for_polygon(
     component: str = "model",
     skip_edges: List[Tuple[Point2D, Point2D]] | None = None,
     wall_thickness: float = 0.0,
+    cap_top: bool = True,
+    cap_bottom: bool = True,
 ) -> None:
-    _add_wall_band_ring(mesh, material, list(poly.exterior.coords), z0, z1, poly, component=component, skip_edges=skip_edges, wall_thickness=wall_thickness)
+    _add_wall_band_ring(mesh, material, list(poly.exterior.coords), z0, z1, poly, component=component, skip_edges=skip_edges, wall_thickness=wall_thickness, cap_top=cap_top, cap_bottom=cap_bottom)
     for interior in poly.interiors:
-        _add_wall_band_ring(mesh, material, list(interior.coords), z0, z1, poly, component=component, skip_edges=skip_edges, wall_thickness=wall_thickness)
+        _add_wall_band_ring(mesh, material, list(interior.coords), z0, z1, poly, component=component, skip_edges=skip_edges, wall_thickness=wall_thickness, cap_top=cap_top, cap_bottom=cap_bottom)
+
+
+def _edge_outward_normal(p0: Point2D, p1: Point2D, interior_test_polygon: Polygon) -> Point2D:
+    dx = p1[0] - p0[0]
+    dy = p1[1] - p0[1]
+    edge_len = math.hypot(dx, dy)
+    if edge_len < 1e-9:
+        return (0.0, 0.0)
+    nx = -dy / edge_len
+    ny = dx / edge_len
+    mx = (p0[0] + p1[0]) * 0.5
+    my = (p0[1] + p1[1]) * 0.5
+    probe = Point(mx + nx * 0.05, my + ny * 0.05)
+    if interior_test_polygon.covers(probe):
+        nx, ny = -nx, -ny
+    return (nx, ny)
+
+
+def _add_oriented_quad(
+    mesh: ModelData,
+    material: str,
+    a: Point3D,
+    b: Point3D,
+    c: Point3D,
+    d: Point3D,
+    out: Point3D,
+    component: str = "model",
+) -> None:
+    t1: Triangle3D = (a, b, c)
+    t2: Triangle3D = (a, c, d)
+    n = _triangle_normal(t1)
+    dot = n[0] * out[0] + n[1] * out[1] + n[2] * out[2]
+    if dot < 0:
+        t1 = (t1[0], t1[2], t1[1])
+        t2 = (t2[0], t2[2], t2[1])
+    mesh.add_triangle(material, t1, component=component)
+    mesh.add_triangle(material, t2, component=component)
+
+
+def _add_oriented_triangle(
+    mesh: ModelData,
+    material: str,
+    a: Point3D,
+    b: Point3D,
+    c: Point3D,
+    out: Point3D,
+    component: str = "model",
+) -> None:
+    tri: Triangle3D = (a, b, c)
+    n = _triangle_normal(tri)
+    dot = n[0] * out[0] + n[1] * out[1] + n[2] * out[2]
+    if dot < 0:
+        tri = (tri[0], tri[2], tri[1])
+    mesh.add_triangle(material, tri, component=component)
+
+
+def _add_corner_filler(
+    mesh: ModelData,
+    material: str,
+    vertex: Point2D,
+    edge_before: Tuple[Point2D, Point2D],
+    edge_after: Tuple[Point2D, Point2D],
+    z0: float,
+    z1: float,
+    half_t: float,
+    interior_polygon_before: Polygon,
+    interior_polygon_after: Polygon | None = None,
+    component: str = "model",
+    cap_top: bool = True,
+    cap_bottom: bool = True,
+) -> None:
+    if z1 <= z0:
+        return
+
+    b0, b1 = edge_before
+    a0, a1 = edge_after
+    dbx = b1[0] - b0[0]
+    dby = b1[1] - b0[1]
+    dax = a1[0] - a0[0]
+    day = a1[1] - a0[1]
+    lb = math.hypot(dbx, dby)
+    la = math.hypot(dax, day)
+    if lb < 1e-9 or la < 1e-9:
+        return
+    ub = (dbx / lb, dby / lb)
+    ua = (dax / la, day / la)
+
+    if interior_polygon_after is None:
+        interior_polygon_after = interior_polygon_before
+    nb_out = _edge_outward_normal(b0, b1, interior_polygon_before)
+    na_out = _edge_outward_normal(a0, a1, interior_polygon_after)
+    nb_in = (-nb_out[0], -nb_out[1])
+    na_in = (-na_out[0], -na_out[1])
+
+    p_before = (
+        vertex[0] + ub[0] * half_t + nb_in[0] * half_t,
+        vertex[1] + ub[1] * half_t + nb_in[1] * half_t,
+    )
+    p_after = (
+        vertex[0] - ua[0] * half_t + na_in[0] * half_t,
+        vertex[1] - ua[1] * half_t + na_in[1] * half_t,
+    )
+
+    ib0 = (vertex[0] + nb_in[0] * half_t, vertex[1] + nb_in[1] * half_t)
+    ib1 = (ib0[0] + ub[0], ib0[1] + ub[1])
+    ia0 = (vertex[0] + na_in[0] * half_t, vertex[1] + na_in[1] * half_t)
+    ia1 = (ia0[0] + ua[0], ia0[1] + ua[1])
+    miter = _line_intersection(ib0, ib1, ia0, ia1)
+
+    area2 = (
+        (p_after[0] - p_before[0]) * (miter[1] - p_before[1])
+        - (p_after[1] - p_before[1]) * (miter[0] - p_before[0])
+    )
+    if abs(area2) < 1e-8:
+        return
+
+    centroid = (
+        (p_before[0] + p_after[0] + miter[0]) / 3.0,
+        (p_before[1] + p_after[1] + miter[1]) / 3.0,
+    )
+    pts = [p_before, p_after, miter]
+    base = [(p[0], p[1], z0) for p in pts]
+    top = [(p[0], p[1], z1) for p in pts]
+
+    if cap_bottom:
+        _add_oriented_triangle(mesh, material, base[0], base[1], base[2], (0.0, 0.0, -1.0), component=component)
+    if cap_top:
+        _add_oriented_triangle(mesh, material, top[0], top[1], top[2], (0.0, 0.0, 1.0), component=component)
+
+    for i in range(3):
+        j = (i + 1) % 3
+        mx = (pts[i][0] + pts[j][0]) * 0.5
+        my = (pts[i][1] + pts[j][1]) * 0.5
+        out = (mx - centroid[0], my - centroid[1], 0.0)
+        _add_oriented_quad(mesh, material, base[i], base[j], top[j], top[i], out, component=component)
+
+
+def _add_hex_corner_fillers(
+    mesh: ModelData,
+    hex_vertices: List[Point2D],
+    z_ranges: Dict[int, Tuple[float, float]],
+    half_t: float,
+    atrium_poly: Polygon,
+    material: str,
+    component: str = "atrium_corner_filler",
+    cap_top: bool = True,
+    cap_bottom: bool = True,
+) -> None:
+    n = len(hex_vertices)
+    for i, vertex in enumerate(hex_vertices):
+        if i not in z_ranges:
+            continue
+        z0, z1 = z_ranges[i]
+        if z1 <= z0:
+            continue
+        prev_v = hex_vertices[(i - 1) % n]
+        next_v = hex_vertices[(i + 1) % n]
+        _add_corner_filler(
+            mesh,
+            material,
+            vertex,
+            (prev_v, vertex),
+            (vertex, next_v),
+            z0,
+            z1,
+            half_t,
+            atrium_poly,
+            atrium_poly,
+            component=f"{component}_v{i}",
+            cap_top=cap_top,
+            cap_bottom=cap_bottom,
+        )
 
 
 def add_extruded_polygon(
@@ -257,13 +441,25 @@ def add_extruded_polygon(
     side_material: str,
     component: str = "model",
     wall_thickness: float = 0.0,
+    skip_edges: List[Tuple[Point2D, Point2D]] | None = None,
 ) -> None:
     if z1 <= z0:
         return
     for poly in _iter_polygons(geometry):
         _add_polygon_cap(mesh, top_material, poly, z1, up=True, component=component)
         _add_polygon_cap(mesh, bottom_material, poly, z0, up=False, component=component)
-        _add_vertical_walls_for_polygon(mesh, poly, z0, z1, side_material, component=component, wall_thickness=wall_thickness)
+        _add_vertical_walls_for_polygon(
+            mesh,
+            poly,
+            z0,
+            z1,
+            side_material,
+            component=component,
+            skip_edges=skip_edges,
+            wall_thickness=wall_thickness,
+            cap_top=False,
+            cap_bottom=False,
+        )
 
 
 def _terrain_profile(
@@ -918,21 +1114,34 @@ def _add_side_courtyards(
             key=lambda i: (pts[i][1] + pts[(i + 1) % len(pts)][1]) / 2.0,
         )
         wt_conc = float(config.get("wall_thickness_concrete", 0.667))
-        for i in range(len(pts)):
-            p0 = pts[i]
-            p1 = pts[(i + 1) % len(pts)]
-            # Skip the back edge entirely — open to back lawn
+        edge_count = len(pts)
+        edge_enabled = [False] * edge_count
+        for i in range(edge_count):
             if i == back_edge_idx:
                 continue
+            p0 = pts[i]
+            p1 = pts[(i + 1) % edge_count]
+            tz0 = terrain_z(p0[0], p0[1])
+            tz1 = terrain_z(p1[0], p1[1])
+            wall_top_0 = max(tz0 + retaining_wall_rise, lower_ground)
+            wall_top_1 = max(tz1 + retaining_wall_rise, lower_ground)
+            if wall_top_0 - lower_ground < 0.5 and wall_top_1 - lower_ground < 0.5:
+                continue
+            if math.hypot(p1[0] - p0[0], p1[1] - p0[1]) < 1e-9:
+                continue
+            edge_enabled[i] = True
+
+        for i in range(edge_count):
+            if not edge_enabled[i]:
+                continue
+            p0 = pts[i]
+            p1 = pts[(i + 1) % edge_count]
             # Terrain height at each vertex
             tz0 = terrain_z(p0[0], p0[1])
             tz1 = terrain_z(p1[0], p1[1])
             # Retaining wall top = terrain + 4', but not below courtyard floor
             wall_top_0 = max(tz0 + retaining_wall_rise, lower_ground)
             wall_top_1 = max(tz1 + retaining_wall_rise, lower_ground)
-            # Skip edges where wall height is negligible
-            if wall_top_0 - lower_ground < 0.5 and wall_top_1 - lower_ground < 0.5:
-                continue
             # Build thick wall with per-vertex top heights (follows terrain contour)
             edge_dx = p1[0] - p0[0]
             edge_dy = p1[1] - p0[1]
@@ -982,6 +1191,17 @@ def _add_side_courtyards(
             _cquad((i0[0], i0[1], z_bot), (i1[0], i1[1], z_bot),
                    (o1[0], o1[1], z_bot), (o0[0], o0[1], z_bot),
                    (0.0, 0.0, -1.0))
+            # End caps only where walls terminate (adjacent edge absent)
+            prev_i = (i - 1) % edge_count
+            next_i = (i + 1) % edge_count
+            if not edge_enabled[prev_i]:
+                _cquad((o0[0], o0[1], z_bot), (o0[0], o0[1], wall_top_0),
+                       (i0[0], i0[1], wall_top_0), (i0[0], i0[1], z_bot),
+                       (-edge_dx / edge_len, -edge_dy / edge_len, 0.0))
+            if not edge_enabled[next_i]:
+                _cquad((i1[0], i1[1], z_bot), (i1[0], i1[1], wall_top_1),
+                       (o1[0], o1[1], wall_top_1), (o1[0], o1[1], z_bot),
+                       (edge_dx / edge_len, edge_dy / edge_len, 0.0))
 
 
 def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
@@ -1027,6 +1247,8 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
         "glass",
         component="master_triangle_facade",
         wall_thickness=wt_glass,
+        cap_top=False,
+        cap_bottom=False,
     )
     triangle_roof_poly = triangle_poly.difference(atrium_poly)
     add_extruded_polygon(
@@ -1047,18 +1269,21 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
         i0, i1 = WING_EDGE_INDICES[wing_name]
         atrium_edge_garage = (plan.hex_vertices[i0], plan.hex_vertices[i1])
 
-        # Solid concrete foundation from atrium floor to garage walking surface
-        # Creates walls on ALL edges (including atrium-facing) to seal completely
-        add_extruded_polygon(
-            mesh,
-            wing_poly,
-            atrium_floor,
-            garage_floor + slab,
-            top_material="concrete",
-            bottom_material="concrete",
-            side_material="concrete",
-            component=f"wing_{wing_name.lower()}_garage_floor",
+        # Garage floor slab: caps + side walls on non-atrium edges only.
+        # Atrium-facing wall is a separate component (wing_X_atrium_wall)
+        # so it renders as one clean object with no z-fighting.
+        comp_gf = f"wing_{wing_name.lower()}_garage_floor"
+        _add_polygon_cap(mesh, "concrete", wing_poly, garage_floor + slab,
+                         up=True, component=comp_gf)
+        _add_polygon_cap(mesh, "concrete", wing_poly, atrium_floor,
+                         up=False, component=comp_gf)
+        _add_vertical_walls_for_polygon(
+            mesh, wing_poly, atrium_floor, garage_floor + slab,
+            "concrete", component=comp_gf,
+            skip_edges=[atrium_edge_garage],
             wall_thickness=wt_conc,
+            cap_top=False,
+            cap_bottom=False,
         )
         # All garage walls concrete (including atrium-facing edge)
         _add_vertical_walls_for_polygon(
@@ -1070,13 +1295,10 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
             component=f"wing_{wing_name.lower()}_garage_facade",
             skip_edges=[atrium_edge_garage],
             wall_thickness=wt_conc,
+            cap_top=False,
+            cap_bottom=False,
         )
-        # Concrete wall on atrium-facing edge
-        p0, p1 = atrium_edge_garage
-        z0_w, z1_w = garage_floor + slab, garage_floor + slab + ceiling
-        _add_solid_wall_edge(mesh, "concrete", p0, p1, z0_w, z1_w,
-                             wt_conc, wing_poly,
-                             component=f"wing_{wing_name.lower()}_garage_facade")
+        # NOTE: Atrium-facing wall handled by wing_X_atrium_wall below.
         # NOTE: garage_roof_slab removed - wing_floor at same z range covers it,
         # and having both caused z-fighting on the atrium edge.
 
@@ -1085,11 +1307,13 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
     # Edges facing the atrium that should be open (no wall)
     wing_atrium_edges = {
         "A": (plan.hex_vertices[0], plan.hex_vertices[5]),   # hex v0→v5
+        "B": (plan.hex_vertices[3], plan.hex_vertices[4]),   # hex v3→v4
         "C": (plan.hex_vertices[1], plan.hex_vertices[2]),   # hex v1→v2
     }
     for wing_name, floor in wing_floor_elevation.items():
         wing_poly = Polygon(plan.wing_polygons[wing_name])
         wall_top = master_triangle_elevation if wing_name in double_height_wings else floor + ceiling
+        wing_skip = [wing_atrium_edges[wing_name]] if wing_name in wing_atrium_edges else []
         add_extruded_polygon(
             mesh,
             wing_poly,
@@ -1100,8 +1324,8 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
             side_material="concrete",
             component=f"wing_{wing_name.lower()}_floor",
             wall_thickness=wt_conc,
+            skip_edges=wing_skip,
         )
-        wing_skip = [wing_atrium_edges[wing_name]] if wing_name in wing_atrium_edges else []
         _add_vertical_walls_for_polygon(
             mesh,
             wing_poly,
@@ -1111,6 +1335,8 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
             component=f"wing_{wing_name.lower()}_facade",
             skip_edges=wing_skip,
             wall_thickness=wt_glass,
+            cap_top=False,
+            cap_bottom=False,
         )
         add_extruded_polygon(
             mesh,
@@ -1124,21 +1350,23 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
             wall_thickness=wt_conc,
         )
 
-    # Concrete wall closing the gap between atrium floor and Wing C floor.
-    # Wings A and B don't need this: their garage structure already provides
-    # continuous wall coverage from atrium_floor to upper_ground on the atrium edge.
-    # Having both caused z-fighting artifacts (dark band at wall-floor junction).
-    for wing_name in ("C",):
+    # Concrete wall on the atrium-facing edge of each wing.
+    # Single solid wall from atrium floor up to where upper wing glazing begins.
+    for wing_name in ("A", "B", "C"):
         i0, i1 = WING_EDGE_INDICES[wing_name]
         p0 = plan.hex_vertices[i0]
         p1 = plan.hex_vertices[i1]
         z_bot = atrium_floor
-        z_top = wing_floor_elevation[wing_name]
+        if wing_name in ("A", "B"):
+            z_top = master_triangle_elevation
+        else:
+            z_top = wing_floor_elevation[wing_name] + slab
         if z_top > z_bot:
             w_poly = Polygon(plan.wing_polygons[wing_name])
             _add_solid_wall_edge(mesh, "concrete", p0, p1, z_bot, z_top,
                                 wt_conc, w_poly,
-                                component=f"wing_{wing_name.lower()}_atrium_wall")
+                                component=f"wing_{wing_name.lower()}_atrium_wall",
+                                cap_top=False, cap_bottom=(wing_name in ("A", "B")))
 
     # Atrium floor slab.
     # Polygon buffered OUTWARD by half concrete wall thickness so the marble
@@ -1189,32 +1417,117 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
         (plan.hex_vertices[0], plan.hex_vertices[5]),  # Wing A
         wing_b_atrium_edge,                             # Wing B (added manually below)
     ]
-    # Start glass walls at atrium_floor (below marble surface) so the
-    # bottom edge is hidden beneath the slab and no teal band is visible.
-    _add_vertical_walls_for_polygon(
-        mesh,
-        atrium_poly,
-        atrium_floor,
-        atrium_roof_base,
-        "glass",
-        component="atrium_facade",
-        skip_edges=open_atrium_edges,
-        wall_thickness=wt_glass,
-    )
-    # Wing B atrium edge: glass below bedroom, concrete at bedroom, glass above
-    p0_b, p1_b = wing_b_atrium_edge
-    bed_wall_segments = [
-        (atrium_floor, master_triangle_elevation, "glass", wt_glass),
-        (master_triangle_elevation + slab, master_triangle_elevation + slab + ceiling, "concrete", wt_conc),
-        (master_triangle_elevation + slab + ceiling, atrium_roof_base, "glass", wt_glass),
+    # Keep a concrete base band on non-wing atrium edges: glass starts at
+    # garage floor level so the lower atrium side is polished concrete, not
+    # glass, where the wing-adjacent gap was visible.
+    atrium_glass_base = max(garage_floor, atrium_floor + slab)
+    # Top 4' ring below the atrium windows is structural concrete.
+    atrium_top_wall_base = max(atrium_glass_base, atrium_roof_base - 4.0)
+    if atrium_top_wall_base > atrium_glass_base:
+        _add_vertical_walls_for_polygon(
+            mesh,
+            atrium_poly,
+            atrium_glass_base,
+            atrium_top_wall_base,
+            "glass",
+            component="atrium_facade",
+            skip_edges=open_atrium_edges,
+            wall_thickness=wt_glass,
+            cap_top=False,
+            cap_bottom=False,
+        )
+    if atrium_roof_base > atrium_top_wall_base:
+        _add_vertical_walls_for_polygon(
+            mesh,
+            atrium_poly,
+            atrium_top_wall_base,
+            atrium_roof_base,
+            "concrete",
+            component="atrium_top_wall",
+            skip_edges=open_atrium_edges,
+            wall_thickness=wt_conc,
+            cap_top=False,
+            cap_bottom=False,
+        )
+    # Concrete foundation walls on non-wing hex edges (v0→v1, v2→v3, v4→v5)
+    # fill from atrium_floor up to the glass base, hiding any gap/seam.
+    non_wing_edges = [
+        (plan.hex_vertices[0], plan.hex_vertices[1]),
+        (plan.hex_vertices[2], plan.hex_vertices[3]),
+        (plan.hex_vertices[4], plan.hex_vertices[5]),
     ]
-    for z0_seg, z1_seg, seg_mat, seg_wt in bed_wall_segments:
+    for nw_p0, nw_p1 in non_wing_edges:
+        _add_solid_wall_edge(mesh, "concrete", nw_p0, nw_p1,
+                             atrium_floor, atrium_glass_base,
+                             wt_conc, atrium_poly,
+                             component="atrium_foundation",
+                             cap_top=False, cap_bottom=False)
+    # Wing B atrium edge above the wing wall: accent wall, then concrete
+    # support wall below the atrium window line (no glass splice).
+    p0_b, p1_b = wing_b_atrium_edge
+    wing_b_upper_wall_base = master_triangle_elevation + slab + ceiling
+    bed_wall_segments = [
+        (master_triangle_elevation + slab, wing_b_upper_wall_base, "concrete", wt_conc, "bedroom_accent_wall"),
+    ]
+    if atrium_top_wall_base > wing_b_upper_wall_base:
+        bed_wall_segments.append((wing_b_upper_wall_base, atrium_top_wall_base, "concrete", wt_conc, "atrium_top_wall"))
+    if atrium_roof_base > atrium_top_wall_base:
+        bed_wall_segments.append((atrium_top_wall_base, atrium_roof_base, "concrete", wt_conc, "atrium_top_wall"))
+    for z0_seg, z1_seg, seg_mat, seg_wt, comp in bed_wall_segments:
         if z1_seg <= z0_seg:
             continue
-        comp = "atrium_facade" if seg_mat == "glass" else "bedroom_accent_wall"
         _add_solid_wall_edge(mesh, seg_mat, p0_b, p1_b, z0_seg, z1_seg,
-                             seg_wt, atrium_poly, component=comp)
+                             seg_wt, atrium_poly, component=comp,
+                             cap_top=False, cap_bottom=False)
     _add_pyramid_roof(mesh, plan.hex_vertices, atrium_roof_base, atrium_roof_rise, "glass", component="atrium_roof")
+    _add_hex_corner_fillers(
+        mesh,
+        plan.hex_vertices,
+        {
+            0: (atrium_floor, master_triangle_elevation),
+            1: (atrium_floor, wing_floor_elevation["C"] + slab),
+            2: (atrium_floor, wing_floor_elevation["C"] + slab),
+            3: (atrium_floor, master_triangle_elevation),
+            4: (atrium_floor, master_triangle_elevation),
+            5: (atrium_floor, master_triangle_elevation),
+        },
+        wt_conc / 2.0,
+        atrium_poly,
+        "concrete",
+        component="atrium_corner_filler",
+        cap_top=False,
+        cap_bottom=False,
+    )
+    wing_a_poly = Polygon(plan.wing_polygons["A"])
+    wing_b_poly = Polygon(plan.wing_polygons["B"])
+    e0 = plan.extension_vertices[0]
+    e3 = plan.extension_vertices[3]
+    e4 = plan.extension_vertices[4]
+    e5 = plan.extension_vertices[5]
+    garage_corner_fillers = [
+        # Wing A side walls to adjacent non-wing atrium edges (foundation level)
+        (plan.hex_vertices[0], (e0, plan.hex_vertices[0]), (plan.hex_vertices[0], plan.hex_vertices[1]), wing_a_poly, atrium_poly, "wing_a_garage_corner_v0"),
+        (plan.hex_vertices[5], (plan.hex_vertices[4], plan.hex_vertices[5]), (plan.hex_vertices[5], e5), atrium_poly, wing_a_poly, "wing_a_garage_corner_v5"),
+        # Wing B side walls to adjacent non-wing atrium edges (foundation level)
+        (plan.hex_vertices[3], (plan.hex_vertices[2], plan.hex_vertices[3]), (plan.hex_vertices[3], e3), atrium_poly, wing_b_poly, "wing_b_garage_corner_v3"),
+        (plan.hex_vertices[4], (e4, plan.hex_vertices[4]), (plan.hex_vertices[4], plan.hex_vertices[5]), wing_b_poly, atrium_poly, "wing_b_garage_corner_v4"),
+    ]
+    for vtx, edge_before, edge_after, poly_before, poly_after, comp in garage_corner_fillers:
+        _add_corner_filler(
+            mesh,
+            "concrete",
+            vtx,
+            edge_before,
+            edge_after,
+            atrium_floor,
+            garage_floor + slab,
+            wt_conc / 2.0,
+            poly_before,
+            poly_after,
+            component=comp,
+            cap_top=False,
+            cap_bottom=False,
+        )
 
     courtyard_module(mesh, plan, config)
 

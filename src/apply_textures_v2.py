@@ -10,6 +10,9 @@ import os
 
 PROJECT_ROOT = r"F:\home\exploded-hexagon-home"
 TEX = os.path.join(PROJECT_ROOT, "assets", "textures")
+BRUTALIST_CONCRETE_SCALE = (0.15, 0.15, 0.15)
+BRUTALIST_CONCRETE_ROUGHNESS = 0.35
+BRUTALIST_CONCRETE_COLOR = (0.67, 0.67, 0.66, 1.0)
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -125,10 +128,24 @@ for n in ("driveway_floor", "driveway_ext_floor"):
 
 # 3. Smooth concrete (walls, slabs, retaining walls)
 print("\n--- Smooth concrete ---")
-conc_img = _load_img("smooth_concrete_basecolor.png")
-conc_mat = _make_textured_mat("SmoothConc", conc_img,
-                               projection="BOX", scale=(15.0, 15.0, 15.0),
-                               roughness=0.4)
+conc_mat = _make_textured_mat("SmoothConc", None, roughness=BRUTALIST_CONCRETE_ROUGHNESS)
+if conc_mat and conc_mat.use_nodes:
+    _nodes = conc_mat.node_tree.nodes
+    _links = conc_mat.node_tree.links
+    _bsdf = next((n for n in _nodes if n.type == "BSDF_PRINCIPLED"), None)
+    if _bsdf:
+        _bsdf.inputs["Base Color"].default_value = BRUTALIST_CONCRETE_COLOR
+        _bsdf.inputs["Specular IOR Level"].default_value = 0.45
+    _noise = _nodes.new("ShaderNodeTexNoise")
+    _noise.location = (-320, -180)
+    _noise.inputs["Scale"].default_value = 18.0
+    _noise.inputs["Detail"].default_value = 3.0
+    _bump = _nodes.new("ShaderNodeBump")
+    _bump.location = (-90, -180)
+    _bump.inputs["Strength"].default_value = 0.03
+    _links.new(_noise.outputs["Fac"], _bump.inputs["Height"])
+    if _bsdf:
+        _links.new(_bump.outputs["Normal"], _bsdf.inputs["Normal"])
 concrete_objs = [
     "driveway_walls", "driveway_ext_walls",
     "motorcourt_walls",
@@ -140,6 +157,12 @@ concrete_objs = [
     "wing_b_garage_floor", "wing_b_garage_roof_slab",
     "wing_b_garage_facade",  # lower level = garage/utility, concrete walls
     "wing_a_atrium_wall", "wing_b_atrium_wall", "wing_c_atrium_wall",  # concrete walls between atrium and wing floors
+    "atrium_foundation",  # concrete kick plate below glass curtain walls
+    "atrium_top_wall",    # 4' structural wall below top atrium glazing
+    "atrium_corner_filler_v0", "atrium_corner_filler_v1", "atrium_corner_filler_v2",
+    "atrium_corner_filler_v3", "atrium_corner_filler_v4", "atrium_corner_filler_v5",
+    "wing_a_garage_corner_v0", "wing_a_garage_corner_v5",
+    "wing_b_garage_corner_v3", "wing_b_garage_corner_v4",
     "wing_c_floor", "wing_c_roof_slab",
     "master_triangle_floor", "master_triangle_roof_slab",
 ]
@@ -196,7 +219,8 @@ accent_mat = _make_textured_mat("AccentWall", accent_img,
                                  roughness=0.3)
 ok = _assign_mat("bedroom_accent_wall", accent_mat)
 print(f"  bedroom_accent_wall: {'OK' if ok else 'not found'}")
-# Add backfacing shader: atrium side shows concrete, bedroom side shows accent
+# Mix by world-space normal direction so only the room-facing side keeps
+# the accent texture; atrium-facing side uses concrete.
 if ok and accent_mat.node_tree:
     _an = accent_mat.node_tree.nodes
     _al = accent_mat.node_tree.links
@@ -205,29 +229,40 @@ if ok and accent_mat.node_tree:
     if _bsdf and _out:
         _cb = _an.new('ShaderNodeBsdfPrincipled')
         _cb.location = (_bsdf.location.x, _bsdf.location.y - 300)
-        _ct = _an.new('ShaderNodeTexImage')
-        _ct.location = (_cb.location.x - 300, _cb.location.y)
-        _ci = _load_img("smooth_concrete_basecolor.png")
-        _ct.image = _ci
-        _ctc = _an.new('ShaderNodeTexCoord')
-        _ctc.location = (_ct.location.x - 400, _ct.location.y)
-        _cm = _an.new('ShaderNodeMapping')
-        _cm.location = (_ct.location.x - 200, _ct.location.y)
-        _cm.inputs['Scale'].default_value = (0.15, 0.15, 0.15)
-        _al.new(_ctc.outputs['Object'], _cm.inputs['Vector'])
-        _al.new(_cm.outputs['Vector'], _ct.inputs['Vector'])
-        _al.new(_ct.outputs['Color'], _cb.inputs['Base Color'])
-        _cb.inputs['Roughness'].default_value = 0.4
+        _cb.inputs['Base Color'].default_value = BRUTALIST_CONCRETE_COLOR
+        _cb.inputs['Roughness'].default_value = BRUTALIST_CONCRETE_ROUGHNESS
+        if "Specular IOR Level" in _cb.inputs:
+            _cb.inputs["Specular IOR Level"].default_value = 0.45
+        _cn = _an.new('ShaderNodeTexNoise')
+        _cn.location = (_cb.location.x - 360, _cb.location.y - 40)
+        _cn.inputs['Scale'].default_value = 18.0
+        _cn.inputs['Detail'].default_value = 3.0
+        _cbump = _an.new('ShaderNodeBump')
+        _cbump.location = (_cb.location.x - 120, _cb.location.y - 40)
+        _cbump.inputs['Strength'].default_value = 0.03
+        _al.new(_cn.outputs['Fac'], _cbump.inputs['Height'])
+        _al.new(_cbump.outputs['Normal'], _cb.inputs['Normal'])
         _gn = _an.new('ShaderNodeNewGeometry')
-        _gn.location = (_bsdf.location.x + 200, _bsdf.location.y + 200)
+        _gn.location = (_bsdf.location.x + 100, _bsdf.location.y + 240)
+        _dot = _an.new('ShaderNodeVectorMath')
+        _dot.operation = 'DOT_PRODUCT'
+        _dot.location = (_bsdf.location.x + 280, _bsdf.location.y + 220)
+        # Wing B atrium-edge outward normal (toward room interior)
+        _dot.inputs[1].default_value = (-0.8660254, -0.5, 0.0)
+        _gt = _an.new('ShaderNodeMath')
+        _gt.operation = 'GREATER_THAN'
+        _gt.inputs[1].default_value = 0.9
+        _gt.location = (_bsdf.location.x + 460, _bsdf.location.y + 220)
         _mx = _an.new('ShaderNodeMixShader')
-        _mx.location = (_bsdf.location.x + 400, _bsdf.location.y)
+        _mx.location = (_bsdf.location.x + 640, _bsdf.location.y)
         for _lk in list(_al):
             if _lk.to_node == _out and _lk.to_socket.name == 'Surface':
                 _al.remove(_lk)
-        _al.new(_gn.outputs['Backfacing'], _mx.inputs['Fac'])
-        _al.new(_bsdf.outputs['BSDF'], _mx.inputs[1])
-        _al.new(_cb.outputs['BSDF'], _mx.inputs[2])
+        _al.new(_gn.outputs['True Normal'], _dot.inputs[0])
+        _al.new(_dot.outputs['Value'], _gt.inputs[0])
+        _al.new(_gt.outputs['Value'], _mx.inputs['Fac'])
+        _al.new(_cb.outputs['BSDF'], _mx.inputs[1])
+        _al.new(_bsdf.outputs['BSDF'], _mx.inputs[2])
         _al.new(_mx.outputs['Shader'], _out.inputs['Surface'])
 
 # 7. Plant wall (atrium-facing side of accent wall, if separate object exists)
