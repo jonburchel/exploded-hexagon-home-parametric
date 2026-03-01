@@ -1138,7 +1138,7 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
         i0, i1 = WING_EDGE_INDICES[wing_name]
         p0 = plan.hex_vertices[i0]
         p1 = plan.hex_vertices[i1]
-        z_bot = atrium_floor + slab
+        z_bot = atrium_floor
         z_top = wing_floor_elevation[wing_name]
         if z_top > z_bot:
             w_poly = Polygon(plan.wing_polygons[wing_name])
