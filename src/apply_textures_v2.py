@@ -183,6 +183,39 @@ accent_mat = _make_textured_mat("AccentWall", accent_img,
                                  roughness=0.3)
 ok = _assign_mat("bedroom_accent_wall", accent_mat)
 print(f"  bedroom_accent_wall: {'OK' if ok else 'not found'}")
+# Add backfacing shader: atrium side shows concrete, bedroom side shows accent
+if ok and accent_mat.node_tree:
+    _an = accent_mat.node_tree.nodes
+    _al = accent_mat.node_tree.links
+    _bsdf = next((n for n in _an if n.type == 'BSDF_PRINCIPLED'), None)
+    _out = next((n for n in _an if n.type == 'OUTPUT_MATERIAL'), None)
+    if _bsdf and _out:
+        _cb = _an.new('ShaderNodeBsdfPrincipled')
+        _cb.location = (_bsdf.location.x, _bsdf.location.y - 300)
+        _ct = _an.new('ShaderNodeTexImage')
+        _ct.location = (_cb.location.x - 300, _cb.location.y)
+        _ci = _load_img("smooth_concrete_basecolor.png")
+        _ct.image = _ci
+        _ctc = _an.new('ShaderNodeTexCoord')
+        _ctc.location = (_ct.location.x - 400, _ct.location.y)
+        _cm = _an.new('ShaderNodeMapping')
+        _cm.location = (_ct.location.x - 200, _ct.location.y)
+        _cm.inputs['Scale'].default_value = (0.15, 0.15, 0.15)
+        _al.new(_ctc.outputs['Object'], _cm.inputs['Vector'])
+        _al.new(_cm.outputs['Vector'], _ct.inputs['Vector'])
+        _al.new(_ct.outputs['Color'], _cb.inputs['Base Color'])
+        _cb.inputs['Roughness'].default_value = 0.4
+        _gn = _an.new('ShaderNodeNewGeometry')
+        _gn.location = (_bsdf.location.x + 200, _bsdf.location.y + 200)
+        _mx = _an.new('ShaderNodeMixShader')
+        _mx.location = (_bsdf.location.x + 400, _bsdf.location.y)
+        for _lk in list(_al):
+            if _lk.to_node == _out and _lk.to_socket.name == 'Surface':
+                _al.remove(_lk)
+        _al.new(_gn.outputs['Backfacing'], _mx.inputs['Fac'])
+        _al.new(_bsdf.outputs['BSDF'], _mx.inputs[1])
+        _al.new(_cb.outputs['BSDF'], _mx.inputs[2])
+        _al.new(_mx.outputs['Shader'], _out.inputs['Surface'])
 
 # 7. Plant wall (atrium-facing side of accent wall, if separate object exists)
 print("\n--- Plant wall ---")

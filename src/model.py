@@ -762,16 +762,24 @@ def _add_side_courtyards(
         _add_polygon_cap(mesh, "ground", court_poly, lower_ground, up=True, component=f"{label}_floor")
 
         pts = list(court_verts)
+        # Find the back edge (highest Y midpoint) — leave it open to back yard
+        back_edge_idx = max(
+            range(len(pts)),
+            key=lambda i: (pts[i][1] + pts[(i + 1) % len(pts)][1]) / 2.0,
+        )
         for i in range(len(pts)):
             p0 = pts[i]
             p1 = pts[(i + 1) % len(pts)]
+            # Skip the back edge entirely — open to back lawn
+            if i == back_edge_idx:
+                continue
             # Terrain height at each vertex
             tz0 = terrain_z(p0[0], p0[1])
             tz1 = terrain_z(p1[0], p1[1])
             # Retaining wall top = terrain + 4', but not below courtyard floor
             wall_top_0 = max(tz0 + retaining_wall_rise, lower_ground)
             wall_top_1 = max(tz1 + retaining_wall_rise, lower_ground)
-            # Skip edges where wall height is negligible (open at back)
+            # Skip edges where wall height is negligible
             if wall_top_0 - lower_ground < 0.5 and wall_top_1 - lower_ground < 0.5:
                 continue
             # Build wall as two triangles with varying top height
