@@ -1140,30 +1140,45 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
                                 wt_conc, w_poly,
                                 component=f"wing_{wing_name.lower()}_atrium_wall")
 
-    # Atrium floor slab with inward-facing side walls.
-    # Polygon buffered outward by half wall thickness so marble extends under walls.
-    # Side walls seal the slab edge, preventing the gap between marble edge and
-    # structural walls. Faces are explicitly wound to face INWARD (toward atrium
-    # center) so they render correctly from inside the atrium.
+    # Atrium floor slab.
+    # Polygon buffered OUTWARD by half concrete wall thickness so the marble
+    # cap extends under/through the surrounding structural walls, preventing
+    # any visible seam at the floor-wall junction.  A small extra overlap
+    # (seam_fix) pushes the marble slightly past the coplanar wall face to
+    # eliminate T-junction rendering artifacts (dark band from z-fighting).
     half_wt = wt_conc / 2.0
-    atrium_floor_poly = atrium_poly.buffer(half_wt, join_style=2)  # mitre join
+    seam_fix = 0.05                                        # 0.6" overlap
+    atrium_floor_poly = atrium_poly.buffer(half_wt + seam_fix, join_style=2)
     _add_polygon_cap(mesh, "marble", atrium_floor_poly, atrium_floor + slab,
                      up=True, component="atrium_floor")
     _add_polygon_cap(mesh, "concrete", atrium_floor_poly, atrium_floor,
                      up=False, component="atrium_floor")
-    # Inward-facing side walls (CCW ring gives inward normals with this winding)
+    # Inward-facing side walls seal the slab edge so no void is visible from
+    # inside the atrium when looking toward the wall base at a steep angle.
     _ring = list(atrium_floor_poly.exterior.coords)
     if _ring and _ring[0] == _ring[-1]:
         _ring = _ring[:-1]
+    _cx = sum(p[0] for p in _ring) / len(_ring)
+    _cy = sum(p[1] for p in _ring) / len(_ring)
     _z0, _z1 = atrium_floor, atrium_floor + slab
     for _i in range(len(_ring)):
         _p0 = _ring[_i]
         _p1 = _ring[(_i + 1) % len(_ring)]
+        # Determine inward winding: cross product with centroid direction
+        _ex = _p1[0] - _p0[0]
+        _ey = _p1[1] - _p0[1]
+        _tx = _cx - _p0[0]
+        _ty = _cy - _p0[1]
+        _cross = _ex * _ty - _ey * _tx
+        if _cross > 0:
+            _a, _b = _p0, _p1
+        else:
+            _a, _b = _p1, _p0
         mesh.add_triangle("concrete",
-            ((_p0[0], _p0[1], _z0), (_p0[0], _p0[1], _z1), (_p1[0], _p1[1], _z1)),
+            ((_a[0], _a[1], _z0), (_a[0], _a[1], _z1), (_b[0], _b[1], _z1)),
             component="atrium_floor")
         mesh.add_triangle("concrete",
-            ((_p0[0], _p0[1], _z0), (_p1[0], _p1[1], _z1), (_p1[0], _p1[1], _z0)),
+            ((_a[0], _a[1], _z0), (_b[0], _b[1], _z1), (_b[0], _b[1], _z0)),
             component="atrium_floor")
 
     # Wing C edge (hex v1→v2) and Wing A edge (hex v0→v5) are open to atrium
@@ -1174,10 +1189,12 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
         (plan.hex_vertices[0], plan.hex_vertices[5]),  # Wing A
         wing_b_atrium_edge,                             # Wing B (added manually below)
     ]
+    # Start glass walls at atrium_floor (below marble surface) so the
+    # bottom edge is hidden beneath the slab and no teal band is visible.
     _add_vertical_walls_for_polygon(
         mesh,
         atrium_poly,
-        atrium_floor + slab,
+        atrium_floor,
         atrium_roof_base,
         "glass",
         component="atrium_facade",
@@ -1187,7 +1204,7 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
     # Wing B atrium edge: glass below bedroom, concrete at bedroom, glass above
     p0_b, p1_b = wing_b_atrium_edge
     bed_wall_segments = [
-        (atrium_floor + slab, master_triangle_elevation, "glass", wt_glass),
+        (atrium_floor, master_triangle_elevation, "glass", wt_glass),
         (master_triangle_elevation + slab, master_triangle_elevation + slab + ceiling, "concrete", wt_conc),
         (master_triangle_elevation + slab + ceiling, atrium_roof_base, "glass", wt_glass),
     ]
