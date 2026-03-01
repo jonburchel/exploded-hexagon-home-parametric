@@ -126,6 +126,7 @@ concrete_objs = [
     "wing_b_floor", "wing_b_roof_slab",
     "wing_b_garage_floor", "wing_b_garage_roof_slab",
     "wing_b_garage_facade",  # lower level = garage/utility, concrete walls
+    "wing_a_atrium_wall", "wing_b_atrium_wall",  # concrete walls between atrium and wing floors
     "wing_c_floor", "wing_c_roof_slab",
     "master_triangle_floor", "master_triangle_roof_slab",
 ]

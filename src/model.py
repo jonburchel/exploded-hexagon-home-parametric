@@ -941,6 +941,26 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
             component=f"wing_{wing_name.lower()}_roof_slab",
         )
 
+    # Concrete walls closing the gap between atrium floor and wing floors (A & B)
+    for wing_name in ("A", "B"):
+        i0, i1 = WING_EDGE_INDICES[wing_name]
+        p0 = plan.hex_vertices[i0]
+        p1 = plan.hex_vertices[i1]
+        z_bot = atrium_floor + slab
+        z_top = upper_ground
+        if z_top > z_bot:
+            tri1: Triangle3D = ((p0[0], p0[1], z_bot), (p1[0], p1[1], z_bot), (p1[0], p1[1], z_top))
+            tri2: Triangle3D = ((p0[0], p0[1], z_bot), (p1[0], p1[1], z_top), (p0[0], p0[1], z_top))
+            w_poly = Polygon(plan.wing_polygons[wing_name])
+            nx, ny, _ = _triangle_normal(tri1)
+            mx = (p0[0] + p1[0]) * 0.5
+            my = (p0[1] + p1[1]) * 0.5
+            if w_poly.covers(Point(mx + nx * 0.05, my + ny * 0.05)):
+                tri1 = (tri1[0], tri1[2], tri1[1])
+                tri2 = (tri2[0], tri2[2], tri2[1])
+            mesh.add_triangle("concrete", tri1, component=f"wing_{wing_name.lower()}_atrium_wall")
+            mesh.add_triangle("concrete", tri2, component=f"wing_{wing_name.lower()}_atrium_wall")
+
     add_extruded_polygon(
         mesh,
         atrium_poly,
