@@ -1077,17 +1077,8 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
         _add_solid_wall_edge(mesh, "concrete", p0, p1, z0_w, z1_w,
                              wt_conc, wing_poly,
                              component=f"wing_{wing_name.lower()}_garage_facade")
-        add_extruded_polygon(
-            mesh,
-            wing_poly,
-            garage_floor + slab + ceiling,
-            garage_floor + slab + ceiling + slab,
-            top_material="concrete",
-            bottom_material="concrete",
-            side_material="concrete",
-            component=f"wing_{wing_name.lower()}_garage_roof_slab",
-            wall_thickness=wt_conc,
-        )
+        # NOTE: garage_roof_slab removed - wing_floor at same z range covers it,
+        # and having both caused z-fighting on the atrium edge.
 
     wing_floor_elevation = {"A": upper_ground, "B": upper_ground, "C": lower_ground}
     double_height_wings = {"C"}
@@ -1133,8 +1124,11 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
             wall_thickness=wt_conc,
         )
 
-    # Concrete walls closing the gap between atrium floor and wing floors (A, B, C)
-    for wing_name in ("A", "B", "C"):
+    # Concrete wall closing the gap between atrium floor and Wing C floor.
+    # Wings A and B don't need this: their garage structure already provides
+    # continuous wall coverage from atrium_floor to upper_ground on the atrium edge.
+    # Having both caused z-fighting artifacts (dark band at wall-floor junction).
+    for wing_name in ("C",):
         i0, i1 = WING_EDGE_INDICES[wing_name]
         p0 = plan.hex_vertices[i0]
         p1 = plan.hex_vertices[i1]
@@ -1149,11 +1143,13 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
     # Atrium floor: top (marble) and bottom (concrete) caps only.
     # Side walls are omitted because the gap-closing walls (above) and
     # atrium facade glass walls (below) already cover every hex edge.
-    # Including side walls here caused z-fighting (coplanar concrete top-cap
-    # at z=atrium_floor+slab overlapping the marble top-cap).
-    _add_polygon_cap(mesh, "marble", atrium_poly, atrium_floor + slab,
+    # The floor polygon is buffered outward by half wall thickness so the
+    # marble cap extends UNDER the walls, preventing any visible seam.
+    half_wt = wt_conc / 2.0
+    atrium_floor_poly = atrium_poly.buffer(half_wt, join_style=2)  # mitre join
+    _add_polygon_cap(mesh, "marble", atrium_floor_poly, atrium_floor + slab,
                      up=True, component="atrium_floor")
-    _add_polygon_cap(mesh, "concrete", atrium_poly, atrium_floor,
+    _add_polygon_cap(mesh, "concrete", atrium_floor_poly, atrium_floor,
                      up=False, component="atrium_floor")
     # Wing C edge (hex v1→v2) and Wing A edge (hex v0→v5) are open to atrium
     # Wing B edge (hex v3→v4) handled separately: concrete at bedroom level, glass elsewhere
