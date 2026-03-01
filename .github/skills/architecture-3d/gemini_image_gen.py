@@ -27,7 +27,7 @@ def get_api_key():
     return key
 
 
-def generate_image(prompt, size="1024x1024", model="gemini-2.0-flash-exp", output_path=None):
+def generate_image(prompt, size="1024x1024", model="gemini-2.5-flash-image", output_path=None):
     """Generate an image using the Gemini API.
 
     Args:
@@ -49,7 +49,7 @@ def generate_image(prompt, size="1024x1024", model="gemini-2.0-flash-exp", outpu
     client = genai.Client(api_key=get_api_key())
 
     config = types.GenerateContentConfig(
-        response_modalities=["IMAGE"],
+        response_modalities=["TEXT", "IMAGE"],
     )
 
     response = client.models.generate_content(
@@ -79,7 +79,7 @@ def generate_image(prompt, size="1024x1024", model="gemini-2.0-flash-exp", outpu
     return image_data
 
 
-def generate_texture(material_name, normal=False, size="2048x2048", model="gemini-2.5-flash-preview-image-generation", output_path=None):
+def generate_texture(material_name, normal=False, size="2048x2048", model="gemini-2.5-flash-image", output_path=None):
     """Generate a seamless tileable texture for architectural materials.
 
     Args:

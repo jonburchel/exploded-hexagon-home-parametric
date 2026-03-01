@@ -256,13 +256,14 @@ def add_extruded_polygon(
     bottom_material: str,
     side_material: str,
     component: str = "model",
+    wall_thickness: float = 0.0,
 ) -> None:
     if z1 <= z0:
         return
     for poly in _iter_polygons(geometry):
         _add_polygon_cap(mesh, top_material, poly, z1, up=True, component=component)
         _add_polygon_cap(mesh, bottom_material, poly, z0, up=False, component=component)
-        _add_vertical_walls_for_polygon(mesh, poly, z0, z1, side_material, component=component)
+        _add_vertical_walls_for_polygon(mesh, poly, z0, z1, side_material, component=component, wall_thickness=wall_thickness)
 
 
 def _terrain_profile(
@@ -916,6 +917,7 @@ def _add_side_courtyards(
             range(len(pts)),
             key=lambda i: (pts[i][1] + pts[(i + 1) % len(pts)][1]) / 2.0,
         )
+        wt_conc = float(config.get("wall_thickness_concrete", 0.667))
         for i in range(len(pts)):
             p0 = pts[i]
             p1 = pts[(i + 1) % len(pts)]
@@ -931,30 +933,12 @@ def _add_side_courtyards(
             # Skip edges where wall height is negligible
             if wall_top_0 - lower_ground < 0.5 and wall_top_1 - lower_ground < 0.5:
                 continue
-            # Build wall as two triangles with varying top height
-            tri1: Triangle3D = (
-                (p0[0], p0[1], lower_ground),
-                (p1[0], p1[1], lower_ground),
-                (p1[0], p1[1], wall_top_1),
-            )
-            tri2: Triangle3D = (
-                (p0[0], p0[1], lower_ground),
-                (p1[0], p1[1], wall_top_1),
-                (p0[0], p0[1], wall_top_0),
-            )
-            # Orient normals inward (toward courtyard center)
-            cx = court_poly.centroid.x
-            cy = court_poly.centroid.y
-            nx, ny, _ = _triangle_normal(tri1)
-            face_mx = (tri1[0][0] + tri1[1][0] + tri1[2][0]) / 3.0
-            face_my = (tri1[0][1] + tri1[1][1] + tri1[2][1]) / 3.0
-            to_center_x = cx - face_mx
-            to_center_y = cy - face_my
-            if (nx * to_center_x + ny * to_center_y) < 0.0:
-                tri1 = (tri1[0], tri1[2], tri1[1])
-                tri2 = (tri2[0], tri2[2], tri2[1])
-            mesh.add_triangle("concrete", tri1, component=f"{label}_walls")
-            mesh.add_triangle("concrete", tri2, component=f"{label}_walls")
+            # Use max wall top for solid wall edge (uniform height required)
+            wall_top = max(wall_top_0, wall_top_1)
+            _add_solid_wall_edge(mesh, "concrete", p0, p1,
+                                lower_ground, wall_top,
+                                wt_conc, court_poly,
+                                component=f"{label}_walls")
 
 
 def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
@@ -990,6 +974,7 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
         bottom_material="concrete",
         side_material="concrete",
         component="master_triangle_floor",
+        wall_thickness=wt_conc,
     )
     _add_vertical_walls_for_polygon(
         mesh,
@@ -1010,6 +995,7 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
         bottom_material="concrete",
         side_material="concrete",
         component="master_triangle_roof_slab",
+        wall_thickness=wt_conc,
     )
 
     garage_floor = lower_ground
@@ -1024,6 +1010,7 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
             bottom_material="concrete",
             side_material="concrete",
             component=f"wing_{wing_name.lower()}_garage_floor",
+            wall_thickness=wt_conc,
         )
         # Exterior walls concrete; atrium-facing edge glass
         i0, i1 = WING_EDGE_INDICES[wing_name]
@@ -1053,6 +1040,7 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
             bottom_material="concrete",
             side_material="concrete",
             component=f"wing_{wing_name.lower()}_garage_roof_slab",
+            wall_thickness=wt_conc,
         )
 
     wing_floor_elevation = {"A": upper_ground, "B": upper_ground, "C": atrium_floor}
@@ -1074,6 +1062,7 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
             bottom_material="concrete",
             side_material="concrete",
             component=f"wing_{wing_name.lower()}_floor",
+            wall_thickness=wt_conc,
         )
         wing_skip = [wing_atrium_edges[wing_name]] if wing_name in wing_atrium_edges else []
         _add_vertical_walls_for_polygon(
@@ -1095,6 +1084,7 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
             bottom_material="concrete",
             side_material="concrete",
             component=f"wing_{wing_name.lower()}_roof_slab",
+            wall_thickness=wt_conc,
         )
 
     # Concrete walls closing the gap between atrium floor and wing floors (A & B)
@@ -1119,6 +1109,7 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
         bottom_material="concrete",
         side_material="concrete",
         component="atrium_floor",
+        wall_thickness=wt_conc,
     )
     # Wing C edge (hex v1→v2) and Wing A edge (hex v0→v5) are open to atrium
     # Wing B edge (hex v3→v4) handled separately: concrete at bedroom level, glass elsewhere
