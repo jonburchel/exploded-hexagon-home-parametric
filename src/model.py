@@ -933,12 +933,55 @@ def _add_side_courtyards(
             # Skip edges where wall height is negligible
             if wall_top_0 - lower_ground < 0.5 and wall_top_1 - lower_ground < 0.5:
                 continue
-            # Use max wall top for solid wall edge (uniform height required)
-            wall_top = max(wall_top_0, wall_top_1)
-            _add_solid_wall_edge(mesh, "concrete", p0, p1,
-                                lower_ground, wall_top,
-                                wt_conc, court_poly,
-                                component=f"{label}_walls")
+            # Build thick wall with per-vertex top heights (follows terrain contour)
+            edge_dx = p1[0] - p0[0]
+            edge_dy = p1[1] - p0[1]
+            edge_len = math.hypot(edge_dx, edge_dy)
+            if edge_len < 1e-9:
+                continue
+            # Perpendicular outward normal (away from courtyard center)
+            nx = -edge_dy / edge_len
+            ny = edge_dx / edge_len
+            cx, cy = court_poly.centroid.x, court_poly.centroid.y
+            mx, my = (p0[0] + p1[0]) * 0.5, (p0[1] + p1[1]) * 0.5
+            if nx * (mx - cx) + ny * (my - cy) < 0:
+                nx, ny = -nx, -ny
+            half_t = wt_conc / 2.0
+            # Outer vertices
+            o0 = (p0[0] + nx * half_t, p0[1] + ny * half_t)
+            o1 = (p1[0] + nx * half_t, p1[1] + ny * half_t)
+            # Inner vertices
+            i0 = (p0[0] - nx * half_t, p0[1] - ny * half_t)
+            i1 = (p1[0] - nx * half_t, p1[1] - ny * half_t)
+
+            def _cquad(a, b, c, d, out_dir):
+                t1 = (a, b, c)
+                t2 = (a, c, d)
+                n = _triangle_normal(t1)
+                dot = n[0]*out_dir[0] + n[1]*out_dir[1] + n[2]*out_dir[2]
+                if dot < 0:
+                    t1 = (t1[0], t1[2], t1[1])
+                    t2 = (t2[0], t2[2], t2[1])
+                mesh.add_triangle("concrete", t1, component=f"{label}_walls")
+                mesh.add_triangle("concrete", t2, component=f"{label}_walls")
+
+            z_bot = lower_ground
+            # Outer face (per-vertex top heights)
+            _cquad((o0[0], o0[1], z_bot), (o1[0], o1[1], z_bot),
+                   (o1[0], o1[1], wall_top_1), (o0[0], o0[1], wall_top_0),
+                   (nx, ny, 0.0))
+            # Inner face
+            _cquad((i1[0], i1[1], z_bot), (i0[0], i0[1], z_bot),
+                   (i0[0], i0[1], wall_top_0), (i1[0], i1[1], wall_top_1),
+                   (-nx, -ny, 0.0))
+            # Top cap (sloped)
+            _cquad((o0[0], o0[1], wall_top_0), (o1[0], o1[1], wall_top_1),
+                   (i1[0], i1[1], wall_top_1), (i0[0], i0[1], wall_top_0),
+                   (0.0, 0.0, 1.0))
+            # Bottom cap
+            _cquad((i0[0], i0[1], z_bot), (i1[0], i1[1], z_bot),
+                   (o1[0], o1[1], z_bot), (o0[0], o0[1], z_bot),
+                   (0.0, 0.0, -1.0))
 
 
 def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
@@ -1043,7 +1086,7 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
             wall_thickness=wt_conc,
         )
 
-    wing_floor_elevation = {"A": upper_ground, "B": upper_ground, "C": atrium_floor}
+    wing_floor_elevation = {"A": upper_ground, "B": upper_ground, "C": lower_ground}
     double_height_wings = {"C"}
     # Edges facing the atrium that should be open (no wall)
     wing_atrium_edges = {
@@ -1087,13 +1130,13 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
             wall_thickness=wt_conc,
         )
 
-    # Concrete walls closing the gap between atrium floor and wing floors (A & B)
-    for wing_name in ("A", "B"):
+    # Concrete walls closing the gap between atrium floor and wing floors (A, B, C)
+    for wing_name in ("A", "B", "C"):
         i0, i1 = WING_EDGE_INDICES[wing_name]
         p0 = plan.hex_vertices[i0]
         p1 = plan.hex_vertices[i1]
         z_bot = atrium_floor + slab
-        z_top = upper_ground
+        z_top = wing_floor_elevation[wing_name]
         if z_top > z_bot:
             w_poly = Polygon(plan.wing_polygons[wing_name])
             _add_solid_wall_edge(mesh, "concrete", p0, p1, z_bot, z_top,
