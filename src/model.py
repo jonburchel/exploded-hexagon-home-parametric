@@ -214,7 +214,7 @@ def _motorcourt_and_driveway(
     flat_length: float = 0.0,
     curve_length: float = 0.0,
 ) -> Tuple[Polygon, Polygon, Point2D, Point2D, Tuple[Point2D, Point2D, Point2D, Point2D],
-           List[Polygon]]:
+           List[Polygon], List[Point2D], List[Point2D]]:
     cx, cy = 0.0, -math.sqrt(3.0) * s
     points: List[Point2D] = []
     for i in range(6):
@@ -253,6 +253,8 @@ def _motorcourt_and_driveway(
 
     # Extended segments beyond the ramp
     extra_segments: List[Polygon] = []
+    extra_left_edges: List[Point2D] = []
+    extra_right_edges: List[Point2D] = []
     nx, ny = -uy, ux  # perpendicular to driveway direction
     half_w = driveway_width * 0.5
 
@@ -262,46 +264,73 @@ def _motorcourt_and_driveway(
         flat_end_right = (end_right[0] + ux * flat_length, end_right[1] + uy * flat_length)
         flat_seg = Polygon([end_left, end_right, flat_end_right, flat_end_left])
         extra_segments.append(flat_seg)
+        extra_left_edges.extend([end_left, flat_end_left])
+        extra_right_edges.extend([end_right, flat_end_right])
 
         if curve_length > 0:
-            # Curved section: 90-degree arc from flat end
-            # Curve turns to the right (positive X direction)
-            curve_center = flat_end_left  # pivot at left edge
-            n_segs = 12
+            # Smooth Bezier curve for 90° turn (toward +nx direction)
+            flat_end_center = (
+                (flat_end_left[0] + flat_end_right[0]) * 0.5,
+                (flat_end_left[1] + flat_end_right[1]) * 0.5,
+            )
+            R_center = curve_length * 2.0 / math.pi
+            # Center of curvature offset in (nx, ny) direction from centerline
+            arc_cx = flat_end_center[0] + R_center * nx
+            arc_cy = flat_end_center[1] + R_center * ny
+            R_outer = R_center + half_w  # left edge (far side)
+            R_inner = max(R_center - half_w, 0.5)  # right edge (near side)
+
+            theta_start = math.atan2(
+                flat_end_center[1] - arc_cy, flat_end_center[0] - arc_cx
+            )
+            theta_end = theta_start + math.pi / 2.0
+
+            # Bezier kappa for optimal quarter-circle approximation
+            kappa = 4.0 / 3.0 * math.tan(math.pi / 8.0)
+
+            def _bezier(P0: Point2D, P1: Point2D, P2: Point2D, P3: Point2D, t: float) -> Point2D:
+                s = 1.0 - t
+                return (
+                    s**3 * P0[0] + 3*s**2*t * P1[0] + 3*s*t**2 * P2[0] + t**3 * P3[0],
+                    s**3 * P0[1] + 3*s**2*t * P1[1] + 3*s*t**2 * P2[1] + t**3 * P3[1],
+                )
+
+            # Left edge (outer) Bezier control points
+            P0L = flat_end_left
+            P3L = (arc_cx + R_outer * math.cos(theta_end),
+                   arc_cy + R_outer * math.sin(theta_end))
+            P1L = (P0L[0] + kappa * R_outer * ux,
+                   P0L[1] + kappa * R_outer * uy)
+            P2L = (P3L[0] - kappa * R_outer * nx,
+                   P3L[1] - kappa * R_outer * ny)
+
+            # Right edge (inner) Bezier control points
+            P0R = flat_end_right
+            P3R = (arc_cx + R_inner * math.cos(theta_end),
+                   arc_cy + R_inner * math.sin(theta_end))
+            P1R = (P0R[0] + kappa * R_inner * ux,
+                   P0R[1] + kappa * R_inner * uy)
+            P2R = (P3R[0] - kappa * R_inner * nx,
+                   P3R[1] - kappa * R_inner * ny)
+
+            n_segs = 48
             prev_left = flat_end_left
             prev_right = flat_end_right
             for seg_i in range(1, n_segs + 1):
-                angle = (math.pi / 2.0) * seg_i / n_segs
-                cos_a = math.cos(angle)
-                sin_a = math.sin(angle)
-                # Rotate direction by angle
-                new_ux = ux * cos_a - uy * sin_a
-                new_uy = ux * sin_a + uy * cos_a
-                new_nx = -new_uy
-                new_ny = new_ux
-                dist = curve_length * seg_i / n_segs
-                seg_center_x = flat_end_left[0] + ux * curve_length * sin_a + (-uy) * curve_length * (1 - cos_a)
-                seg_center_y = flat_end_left[1] + uy * curve_length * sin_a + ux * curve_length * (1 - cos_a)
-                # Hmm, this is getting complex. Let me use a simpler arc approach.
-                # Arc radius = curve_length / (pi/2) so the arc length equals curve_length
-                R = curve_length * 2.0 / math.pi
-                arc_cx = flat_end_left[0] + ny * R
-                arc_cy = flat_end_left[1] - nx * R
-                base_angle = math.atan2(flat_end_left[1] - arc_cy, flat_end_left[0] - arc_cx)
-                cur_angle = base_angle - angle  # curve to the right
-                left_x = arc_cx + R * math.cos(cur_angle)
-                left_y = arc_cy + R * math.sin(cur_angle)
-                right_x = left_x + driveway_width * math.cos(cur_angle + math.pi / 2)
-                right_y = left_y + driveway_width * math.sin(cur_angle + math.pi / 2)
-                cur_left = (left_x, left_y)
-                cur_right = (right_x, right_y)
+                t = seg_i / n_segs
+                cur_left = _bezier(P0L, P1L, P2L, P3L, t)
+                cur_right = _bezier(P0R, P1R, P2R, P3R, t)
                 seg_poly = Polygon([prev_left, prev_right, cur_right, cur_left])
-                if seg_poly.is_valid and seg_poly.area > 0.1:
+                if seg_poly.is_valid and seg_poly.area > 0.01:
                     extra_segments.append(seg_poly)
+                extra_left_edges.append(cur_left)
+                extra_right_edges.append(cur_right)
                 prev_left = cur_left
                 prev_right = cur_right
 
-    return motorcourt, driveway, start_center, end_center, (start_left, start_right, end_right, end_left), extra_segments
+    return (motorcourt, driveway, start_center, end_center,
+            (start_left, start_right, end_right, end_left),
+            extra_segments, extra_left_edges, extra_right_edges)
 
 
 def _add_terrain(
@@ -360,11 +389,11 @@ def _add_terrain(
     if plan.side_courtyard_left:
         cutout_list.append(Polygon(plan.side_courtyard_left))
     building_cutouts = unary_union(cutout_list)
-    motorcourt, driveway, drive_start, drive_end, floor_pts, extra_drive_segs = _motorcourt_and_driveway(
+    motorcourt, driveway, drive_start, drive_end, floor_pts, extra_drive_segs, extra_left_edges, extra_right_edges = _motorcourt_and_driveway(
         s, driveway_width, driveway_length, driveway_flat_length, driveway_curve_length
     )
 
-    def terrain_z(x: float, y: float) -> float:
+    def _base_terrain_z(x: float, y: float) -> float:
         return _terrain_profile(y, y_break, y_low, upper_ground, lower_ground)
 
     drive_dx = drive_end[0] - drive_start[0]
@@ -372,7 +401,58 @@ def _add_terrain(
     drive_len = max(math.hypot(drive_dx, drive_dy), 1e-6)
     drive_ux, drive_uy = drive_dx / drive_len, drive_dy / drive_len
     cut_nx, cut_ny = -drive_uy, drive_ux
-    driveway_end_z = terrain_z(drive_end[0], drive_end[1])
+    driveway_end_z = _base_terrain_z(drive_end[0], drive_end[1])
+    half_w_drive = driveway_width * 0.5
+
+    def driveway_z(x: float, y: float) -> float:
+        proj = (x - drive_start[0]) * drive_ux + (y - drive_start[1]) * drive_uy
+        t = max(0.0, min(1.0, proj / drive_len))
+        return lower_ground + (driveway_end_z - lower_ground) * t
+
+    def extra_drive_z(x: float, y: float) -> float:
+        proj = (x - drive_end[0]) * drive_ux + (y - drive_end[1]) * drive_uy
+        dist = max(0.0, proj)
+        return driveway_end_z - approach_slope * dist
+
+    # Embankment grading: terrain slopes down to meet extended driveway
+    _EMBANKMENT_W = 20.0
+    if extra_left_edges or extra_right_edges:
+        _all_ext = extra_left_edges + extra_right_edges
+        _ext_bbox = (
+            min(p[0] for p in _all_ext) - _EMBANKMENT_W,
+            min(p[1] for p in _all_ext) - _EMBANKMENT_W,
+            max(p[0] for p in _all_ext) + _EMBANKMENT_W,
+            max(p[1] for p in _all_ext) + _EMBANKMENT_W,
+        )
+    else:
+        _ext_bbox = (0.0, 0.0, 0.0, 0.0)
+
+    def terrain_z(x: float, y: float) -> float:
+        base = _base_terrain_z(x, y)
+        if not extra_left_edges and not extra_right_edges:
+            return base
+        if x < _ext_bbox[0] or x > _ext_bbox[2] or y < _ext_bbox[1] or y > _ext_bbox[3]:
+            return base
+        min_dist = _EMBANKMENT_W + 1.0
+        nearest_dz = base
+        for edge_list in (extra_left_edges, extra_right_edges):
+            for i in range(len(edge_list) - 1):
+                e0, e1 = edge_list[i], edge_list[i + 1]
+                edx, edy = e1[0] - e0[0], e1[1] - e0[1]
+                seg_sq = edx * edx + edy * edy
+                if seg_sq < 1e-12:
+                    continue
+                et = max(0.0, min(1.0, ((x - e0[0]) * edx + (y - e0[1]) * edy) / seg_sq))
+                px, py = e0[0] + et * edx, e0[1] + et * edy
+                d = math.hypot(x - px, y - py)
+                if d < min_dist:
+                    min_dist = d
+                    nearest_dz = extra_drive_z(px, py)
+        if min_dist >= _EMBANKMENT_W:
+            return base
+        blend = min_dist / _EMBANKMENT_W
+        blend = blend * blend * (3.0 - 2.0 * blend)
+        return nearest_dz + blend * (base - nearest_dz)
     # Keep driveway top cut aligned to driveway wall footprint at the courtyard seam.
     cut_start_half = driveway_width * 0.5
     cut_start_a = (drive_start[0] + cut_nx * cut_start_half, drive_start[1] + cut_ny * cut_start_half)
@@ -454,18 +534,6 @@ def _add_terrain(
         if seg_poly.is_valid and not seg_poly.is_empty:
             all_drive_cuts.append(seg_poly)
     terrain_area = terrain_square.difference(unary_union(all_drive_cuts))
-
-    def driveway_z(x: float, y: float) -> float:
-        proj = (x - drive_start[0]) * drive_ux + (y - drive_start[1]) * drive_uy
-        t = max(0.0, min(1.0, proj / drive_len))
-        return lower_ground + (driveway_end_z - lower_ground) * t
-
-    # Z for extra segments: flat at terrain level, with gentle approach slope
-    def extra_drive_z(x: float, y: float) -> float:
-        # Distance beyond the ramp end
-        proj = (x - drive_end[0]) * drive_ux + (y - drive_end[1]) * drive_uy
-        dist = max(0.0, proj)
-        return driveway_end_z - approach_slope * dist
 
     for poly in _iter_polygons(terrain_area):
         for tri in _triangles_for_polygon(poly):
@@ -576,6 +644,38 @@ def _add_terrain(
             n = _triangle_normal((t0, t1, t2))
             tri3 = (t0, t1, t2) if n[2] >= 0 else (t0, t2, t1)
             mesh.add_triangle("concrete", tri3, component="driveway_ext_floor")
+
+    # Retaining walls along extra driveway edges (fills terrain-to-driveway gap)
+    for edge_points, sign in [(extra_left_edges, 1.0), (extra_right_edges, -1.0)]:
+        if len(edge_points) < 2:
+            continue
+        for i in range(len(edge_points) - 1):
+            p0 = edge_points[i]
+            p1 = edge_points[i + 1]
+            tz0 = terrain_z(p0[0], p0[1])
+            tz1 = terrain_z(p1[0], p1[1])
+            dz0 = extra_drive_z(p0[0], p0[1])
+            dz1 = extra_drive_z(p1[0], p1[1])
+            if tz0 <= dz0 + 0.05 and tz1 <= dz1 + 0.05:
+                continue
+            top0: Point3D = (p0[0], p0[1], max(tz0, dz0))
+            top1: Point3D = (p1[0], p1[1], max(tz1, dz1))
+            bot0: Point3D = (p0[0], p0[1], dz0)
+            bot1: Point3D = (p1[0], p1[1], dz1)
+            tri1: Triangle3D = (bot0, bot1, top1)
+            tri2: Triangle3D = (bot0, top1, top0)
+            # Orient normals outward (away from driveway center)
+            wnx, wny, _ = _triangle_normal(tri1)
+            edge_dx = p1[0] - p0[0]
+            edge_dy = p1[1] - p0[1]
+            # Cross product of edge direction with up gives outward direction
+            outward_x = -edge_dy * sign
+            outward_y = edge_dx * sign
+            if (wnx * outward_x + wny * outward_y) < 0:
+                tri1 = (tri1[0], tri1[2], tri1[1])
+                tri2 = (tri2[0], tri2[2], tri2[1])
+            mesh.add_triangle("concrete", tri1, component="driveway_ext_walls")
+            mesh.add_triangle("concrete", tri2, component="driveway_ext_walls")
 
 
 def _add_pyramid_roof(

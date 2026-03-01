@@ -20,7 +20,7 @@ from gemini_image_gen import generate_image
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 TEXTURE_DIR = os.path.join(PROJECT_ROOT, 'assets', 'textures')
-MODEL = "gemini-2.5-flash-preview-image-generation"
+MODEL = "gemini-2.5-flash-image"
 
 # Each texture: (short_name, filename, size, prompt)
 TEXTURES = [
@@ -121,12 +121,11 @@ TEXTURES = [
         "lawn_basecolor.png",
         "2048x2048",
         (
-            "Seamless tileable lush green grass lawn texture, top-down overhead view. "
-            "Natural looking well-maintained residential lawn with slight variation in "
-            "blade direction and subtle color differences between individual grass "
-            "blades. Medium green color, photorealistic quality. Even diffuse lighting, "
-            "no shadows, no bare patches. Suitable for PBR architectural landscape "
-            "rendering. No text, no watermarks."
+            "A seamless tileable green grass surface pattern for 3D rendering. "
+            "Bright emerald green uniform lawn, viewed from directly above. "
+            "Fine grass blade detail with natural color variation from light to "
+            "dark green. Clean, diffuse lighting. Square format, PBR ready. "
+            "Pure grass texture only, no objects."
         ),
     ),
 ]

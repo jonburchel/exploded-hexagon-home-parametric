@@ -35,6 +35,13 @@ if glb_in:
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=glb_in)
 
+# Clean up any existing bedroom furniture (allows re-run without duplicates)
+_existing_col = bpy.data.collections.get("WingB_Bedroom")
+if _existing_col:
+    for _obj in list(_existing_col.objects):
+        bpy.data.objects.remove(_obj, do_unlink=True)
+    bpy.data.collections.remove(_existing_col)
+
 # ---------------------------------------------------------------------------
 # Geometry constants (from plan computation, converted to meters)
 # ---------------------------------------------------------------------------
@@ -45,19 +52,22 @@ FT = 0.3048  # feet to meters conversion
 # Nearest triangle vertex (t1): (-53.56, 4.46)
 # Facing direction: 158.3° from hex midpoint toward triangle tip
 #
-# Bed pushed against interior wall (headboard ~0.5 ft from hex edge 3→4).
-# Bed center = hex_midpoint + (BED_L/2 + 0.55) along facing direction:
-#   (-17.25 + 3.885*cos(158.3°), -9.96 + 3.885*sin(158.3°))
-#   ≈ (-20.86, -8.52)
-# Sitting area pushed ~6 ft further toward triangle tip from original pos.
+# Bed flush against interior wall (hex edge 3→4).
+# Hex edge 3→4 runs at -60°; outward perpendicular (into bedroom) at 210°.
+# Bed center placed at (BED_L/2 + 0.05ft) from wall along outward normal.
+# Wall midpoint: (-17.25, -9.96) ft
+# Outward normal: (cos210°, sin210°) = (-0.866, -0.5)
+# bed_center = midpoint + 3.385 * (-0.866, -0.5) = (-20.18, -11.65)
+# Sitting area at 50% from wall to triangle tip, well inside room.
 FLOOR_Z = 26.0 * FT  # master_triangle_elevation + slab
-ANGLE_TO_POINT = math.radians(158.3)  # direction from hex midpoint to triangle tip
 
-BED_CENTER = (-20.86 * FT, -8.52 * FT)
-SITTING_CENTER = (-48.25 * FT, 2.35 * FT)
+BED_CENTER = (-20.5 * FT, -11.85 * FT)
+SITTING_CENTER = (-27.5 * FT, -5.9 * FT)
 
-# Furniture faces toward the triangle point (outward view, away from interior wall)
-FACING_ANGLE = ANGLE_TO_POINT
+# Bed rotation_z = 120° so the box Y axis (depth/length) aligns with 210°
+# (perpendicular to wall, into room), and X axis (width) aligns with 120°
+# (parallel to hex edge 3→4). Headboard at -Y faces toward wall (30°).
+FACING_ANGLE = math.radians(120.0)
 
 # California King: 76" x 80" = 6.33' x 6.67'
 BED_W = 6.33 * FT
@@ -154,27 +164,54 @@ rug_links.new(mix2.outputs['Color'], bsdf_rug.inputs['Base Color'])
 # Helper: create oriented box
 # ---------------------------------------------------------------------------
 def create_box(name, width, depth, height, location, material, rotation_z=0):
-    """Create a box at location, rotated around Z by rotation_z radians."""
-    bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, 0))
-    obj = bpy.context.active_object
-    obj.name = name
-    obj.scale = (width, depth, height)
+    """Create a box with rotation baked into vertices (no operators needed)."""
+    hw, hd, hh = width / 2, depth / 2, height / 2
+    ca, sa = math.cos(rotation_z), math.sin(rotation_z)
+    verts = []
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            for sz in (-1, 1):
+                lx, ly = sx * hw, sy * hd
+                verts.append((lx * ca - ly * sa, lx * sa + ly * ca, sz * hh))
+    faces = [
+        (0, 2, 3, 1), (4, 5, 7, 6),
+        (0, 1, 5, 4), (2, 6, 7, 3),
+        (0, 4, 6, 2), (1, 3, 7, 5),
+    ]
+    mesh = bpy.data.meshes.new(name)
+    mesh.from_pydata(verts, [], faces)
+    mesh.update()
+    obj = bpy.data.objects.new(name, mesh)
     obj.location = (location[0], location[1], location[2] + height / 2)
-    obj.rotation_euler = (0, 0, rotation_z)
     obj.data.materials.append(material)
-    bpy.context.scene.collection.objects.unlink(obj)
     link_to_bedroom(obj)
     return obj
 
 
 def create_cylinder(name, radius, height, location, material, rotation_z=0):
-    bpy.ops.mesh.primitive_cylinder_add(radius=radius, depth=height, location=(0, 0, 0), vertices=24)
-    obj = bpy.context.active_object
-    obj.name = name
+    """Create a cylinder with rotation baked into vertices."""
+    n = 24
+    hh = height / 2
+    ca, sa = math.cos(rotation_z), math.sin(rotation_z)
+    verts = []
+    for i in range(n):
+        a = 2 * math.pi * i / n
+        lx, ly = radius * math.cos(a), radius * math.sin(a)
+        rx, ry = lx * ca - ly * sa, lx * sa + ly * ca
+        verts.append((rx, ry, -hh))
+        verts.append((rx, ry, hh))
+    faces = []
+    for i in range(n):
+        j = (i + 1) % n
+        faces.append((i * 2, j * 2, j * 2 + 1, i * 2 + 1))
+    faces.append(tuple(range(0, n * 2, 2)))
+    faces.append(tuple(range(n * 2 - 1, -1, -2)))
+    mesh = bpy.data.meshes.new(name)
+    mesh.from_pydata(verts, [], faces)
+    mesh.update()
+    obj = bpy.data.objects.new(name, mesh)
     obj.location = (location[0], location[1], location[2] + height / 2)
-    obj.rotation_euler = (0, 0, rotation_z)
     obj.data.materials.append(material)
-    bpy.context.scene.collection.objects.unlink(obj)
     link_to_bedroom(obj)
     return obj
 
