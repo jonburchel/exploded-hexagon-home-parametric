@@ -95,6 +95,90 @@ def _add_polygon_cap(
         mesh.add_triangle(material, tri3d, component=component)
 
 
+def _add_solid_wall_edge(
+    mesh: ModelData,
+    material: str,
+    p0: Point2D,
+    p1: Point2D,
+    z0: float,
+    z1: float,
+    wall_thickness: float,
+    interior_test_polygon: Polygon,
+    component: str = "model",
+) -> None:
+    """Create a solid wall box for a single edge with real thickness."""
+    edge_dx = p1[0] - p0[0]
+    edge_dy = p1[1] - p0[1]
+    edge_len = math.hypot(edge_dx, edge_dy)
+    if edge_len < 1e-9:
+        return
+
+    # Perpendicular unit normal
+    nx = -edge_dy / edge_len
+    ny = edge_dx / edge_len
+
+    # Determine outward direction using interior test
+    mx = (p0[0] + p1[0]) * 0.5
+    my = (p0[1] + p1[1]) * 0.5
+    probe = Point(mx + nx * 0.05, my + ny * 0.05)
+    if interior_test_polygon.covers(probe):
+        nx, ny = -nx, -ny  # flip so (nx, ny) points outward
+
+    half_t = wall_thickness / 2.0
+
+    # Outer vertices (offset outward)
+    o0 = (p0[0] + nx * half_t, p0[1] + ny * half_t)
+    o1 = (p1[0] + nx * half_t, p1[1] + ny * half_t)
+    # Inner vertices (offset inward)
+    i0 = (p0[0] - nx * half_t, p0[1] - ny * half_t)
+    i1 = (p1[0] - nx * half_t, p1[1] - ny * half_t)
+
+    def _quad(a: Point3D, b: Point3D, c: Point3D, d: Point3D, out: Point3D) -> None:
+        """Add a quad (a,b,c,d) with normals facing toward 'out' direction."""
+        t1: Triangle3D = (a, b, c)
+        t2: Triangle3D = (a, c, d)
+        n = _triangle_normal(t1)
+        # Check if normal points toward out direction
+        dot = n[0] * out[0] + n[1] * out[1] + n[2] * out[2]
+        if dot < 0:
+            t1 = (t1[0], t1[2], t1[1])
+            t2 = (t2[0], t2[2], t2[1])
+        mesh.add_triangle(material, t1, component=component)
+        mesh.add_triangle(material, t2, component=component)
+
+    # Outer face (normal points outward)
+    _quad((o0[0], o0[1], z0), (o1[0], o1[1], z0),
+          (o1[0], o1[1], z1), (o0[0], o0[1], z1),
+          (nx, ny, 0.0))
+
+    # Inner face (normal points inward)
+    _quad((i1[0], i1[1], z0), (i0[0], i0[1], z0),
+          (i0[0], i0[1], z1), (i1[0], i1[1], z1),
+          (-nx, -ny, 0.0))
+
+    # Top cap (normal points up)
+    _quad((o0[0], o0[1], z1), (o1[0], o1[1], z1),
+          (i1[0], i1[1], z1), (i0[0], i0[1], z1),
+          (0.0, 0.0, 1.0))
+
+    # Bottom cap (normal points down)
+    _quad((i0[0], i0[1], z0), (i1[0], i1[1], z0),
+          (o1[0], o1[1], z0), (o0[0], o0[1], z0),
+          (0.0, 0.0, -1.0))
+
+    # Left end cap (at p0, normal along -edge direction)
+    edge_ux = edge_dx / edge_len
+    edge_uy = edge_dy / edge_len
+    _quad((o0[0], o0[1], z0), (o0[0], o0[1], z1),
+          (i0[0], i0[1], z1), (i0[0], i0[1], z0),
+          (-edge_ux, -edge_uy, 0.0))
+
+    # Right end cap (at p1, normal along +edge direction)
+    _quad((i1[0], i1[1], z0), (i1[0], i1[1], z1),
+          (o1[0], o1[1], z1), (o1[0], o1[1], z0),
+          (edge_ux, edge_uy, 0.0))
+
+
 def _add_wall_band_ring(
     mesh: ModelData,
     material: str,
@@ -104,6 +188,7 @@ def _add_wall_band_ring(
     interior_test_polygon: Polygon,
     component: str = "model",
     skip_edges: List[Tuple[Point2D, Point2D]] | None = None,
+    wall_thickness: float = 0.0,
 ) -> None:
     pts = ring_coords[:-1] if ring_coords and ring_coords[0] == ring_coords[-1] else ring_coords
     if len(pts) < 2 or z1 <= z0:
@@ -127,20 +212,24 @@ def _add_wall_band_ring(
             if skip:
                 continue
 
-        tri1: Triangle3D = ((p0[0], p0[1], z0), (p1[0], p1[1], z0), (p1[0], p1[1], z1))
-        tri2: Triangle3D = ((p0[0], p0[1], z0), (p1[0], p1[1], z1), (p0[0], p0[1], z1))
+        if wall_thickness > 0:
+            _add_solid_wall_edge(mesh, material, p0, p1, z0, z1,
+                                wall_thickness, interior_test_polygon, component)
+        else:
+            tri1: Triangle3D = ((p0[0], p0[1], z0), (p1[0], p1[1], z0), (p1[0], p1[1], z1))
+            tri2: Triangle3D = ((p0[0], p0[1], z0), (p1[0], p1[1], z1), (p0[0], p0[1], z1))
 
-        nx, ny, _ = _triangle_normal(tri1)
-        if abs(nx) + abs(ny) > 1e-9:
-            mx = (p0[0] + p1[0]) * 0.5
-            my = (p0[1] + p1[1]) * 0.5
-            probe = Point(mx + nx * 0.05, my + ny * 0.05)
-            if interior_test_polygon.covers(probe):
-                tri1 = (tri1[0], tri1[2], tri1[1])
-                tri2 = (tri2[0], tri2[2], tri2[1])
+            nx, ny, _ = _triangle_normal(tri1)
+            if abs(nx) + abs(ny) > 1e-9:
+                mx = (p0[0] + p1[0]) * 0.5
+                my = (p0[1] + p1[1]) * 0.5
+                probe = Point(mx + nx * 0.05, my + ny * 0.05)
+                if interior_test_polygon.covers(probe):
+                    tri1 = (tri1[0], tri1[2], tri1[1])
+                    tri2 = (tri2[0], tri2[2], tri2[1])
 
-        mesh.add_triangle(material, tri1, component=component)
-        mesh.add_triangle(material, tri2, component=component)
+            mesh.add_triangle(material, tri1, component=component)
+            mesh.add_triangle(material, tri2, component=component)
 
 
 def _add_vertical_walls_for_polygon(
@@ -151,10 +240,11 @@ def _add_vertical_walls_for_polygon(
     material: str,
     component: str = "model",
     skip_edges: List[Tuple[Point2D, Point2D]] | None = None,
+    wall_thickness: float = 0.0,
 ) -> None:
-    _add_wall_band_ring(mesh, material, list(poly.exterior.coords), z0, z1, poly, component=component, skip_edges=skip_edges)
+    _add_wall_band_ring(mesh, material, list(poly.exterior.coords), z0, z1, poly, component=component, skip_edges=skip_edges, wall_thickness=wall_thickness)
     for interior in poly.interiors:
-        _add_wall_band_ring(mesh, material, list(interior.coords), z0, z1, poly, component=component, skip_edges=skip_edges)
+        _add_wall_band_ring(mesh, material, list(interior.coords), z0, z1, poly, component=component, skip_edges=skip_edges, wall_thickness=wall_thickness)
 
 
 def add_extruded_polygon(
@@ -347,6 +437,7 @@ def _add_terrain(
     driveway_flat_length = float(config.get("driveway_flat_length", 50.0))
     driveway_curve_length = float(config.get("driveway_curve_length", 50.0))
     approach_slope = float(config.get("driveway_approach_slope", 0.02))
+    slab_t = float(config.get("slab_thickness", 1.0))
     z_base = lower_ground - terrain_drop
 
     house_points = plan.master_triangle + plan.hex_vertices + [p for wing in plan.wing_polygons.values() for p in wing]
@@ -559,11 +650,14 @@ def _add_terrain(
             mesh.add_triangle("ground", tri1, component="ground")
             mesh.add_triangle("ground", tri2, component="ground")
 
+    slab_t = float(config["slab_thickness"])
     driveway_cut_boundary = driveway_cut.boundary
     atrium_front_boundary = LineString(plan.atrium_front_edge)
     motorcourt_floor_area = motorcourt.difference(driveway_cut)
     for poly in _iter_polygons(motorcourt_floor_area):
+        # Motorcourt slab: top + bottom + side walls (1' thick)
         _add_polygon_cap(mesh, "concrete", poly, lower_ground, up=True, component="motorcourt_floor")
+        _add_polygon_cap(mesh, "concrete", poly, lower_ground - slab_t, up=False, component="motorcourt_floor")
         centroid_xy = (poly.centroid.x, poly.centroid.y)
         ring = list(poly.exterior.coords)
         ring = ring[:-1] if ring and ring[0] == ring[-1] else ring
@@ -584,11 +678,25 @@ def _add_terrain(
             if on_driveway_cut_edge:
                 continue
             if on_atrium_front_edge:
+                # Add slab edge face (motorcourt slab thickness visible from atrium side)
+                se1_af: Triangle3D = ((p0[0], p0[1], lower_ground - slab_t), (p1[0], p1[1], lower_ground - slab_t), (p1[0], p1[1], lower_ground))
+                se2_af: Triangle3D = ((p0[0], p0[1], lower_ground - slab_t), (p1[0], p1[1], lower_ground), (p0[0], p0[1], lower_ground))
+                sn_af = _triangle_normal(se1_af)
+                af_mx = (p0[0] + p1[0]) * 0.5
+                af_my = (p0[1] + p1[1]) * 0.5
+                af_tcx = centroid_xy[0] - af_mx
+                af_tcy = centroid_xy[1] - af_my
+                if (sn_af[0] * af_tcx + sn_af[1] * af_tcy) > 0.0:
+                    se1_af = (se1_af[0], se1_af[2], se1_af[1])
+                    se2_af = (se2_af[0], se2_af[2], se2_af[1])
+                mesh.add_triangle("concrete", se1_af, component="motorcourt_walls")
+                mesh.add_triangle("concrete", se2_af, component="motorcourt_walls")
                 continue
             z0 = terrain_z(p0[0], p0[1])
             z1 = terrain_z(p1[0], p1[1])
-            tri1: Triangle3D = ((p0[0], p0[1], lower_ground), (p1[0], p1[1], z1), (p1[0], p1[1], lower_ground))
-            tri2: Triangle3D = ((p0[0], p0[1], lower_ground), (p0[0], p0[1], z0), (p1[0], p1[1], z1))
+            # Retaining wall from slab bottom to terrain
+            tri1: Triangle3D = ((p0[0], p0[1], lower_ground - slab_t), (p1[0], p1[1], z1), (p1[0], p1[1], lower_ground - slab_t))
+            tri2: Triangle3D = ((p0[0], p0[1], lower_ground - slab_t), (p0[0], p0[1], z0), (p1[0], p1[1], z1))
             nx, ny, _ = _triangle_normal(tri1)
             mx = (tri1[0][0] + tri1[1][0] + tri1[2][0]) / 3.0
             my = (tri1[0][1] + tri1[1][1] + tri1[2][1]) / 3.0
@@ -599,15 +707,33 @@ def _add_terrain(
                 tri2 = (tri2[0], tri2[2], tri2[1])
             mesh.add_triangle("concrete", tri1, component="motorcourt_walls")
             mesh.add_triangle("concrete", tri2, component="motorcourt_walls")
+            # Slab edge (from slab bottom to slab top)
+            se1: Triangle3D = ((p0[0], p0[1], lower_ground - slab_t), (p1[0], p1[1], lower_ground - slab_t), (p1[0], p1[1], lower_ground))
+            se2: Triangle3D = ((p0[0], p0[1], lower_ground - slab_t), (p1[0], p1[1], lower_ground), (p0[0], p0[1], lower_ground))
+            sn = _triangle_normal(se1)
+            if (sn[0] * to_center_x + sn[1] * to_center_y) > 0.0:
+                se1 = (se1[0], se1[2], se1[1])
+                se2 = (se2[0], se2[2], se2[1])
+            mesh.add_triangle("concrete", se1, component="motorcourt_walls")
+            mesh.add_triangle("concrete", se2, component="motorcourt_walls")
 
+    # Driveway slab: top surface + bottom surface (offset 1' down) + side edge walls
     for tri in _triangles_for_polygon(driveway):
         p0, p1, p2 = tri
+        # Top surface
         t0 = (p0[0], p0[1], driveway_z(p0[0], p0[1]))
         t1 = (p1[0], p1[1], driveway_z(p1[0], p1[1]))
         t2 = (p2[0], p2[1], driveway_z(p2[0], p2[1]))
         n = _triangle_normal((t0, t1, t2))
         tri3 = (t0, t1, t2) if n[2] >= 0 else (t0, t2, t1)
         mesh.add_triangle("concrete", tri3, component="driveway_floor")
+        # Bottom surface (1' below)
+        b0 = (p0[0], p0[1], driveway_z(p0[0], p0[1]) - slab_t)
+        b1 = (p1[0], p1[1], driveway_z(p1[0], p1[1]) - slab_t)
+        b2 = (p2[0], p2[1], driveway_z(p2[0], p2[1]) - slab_t)
+        n2 = _triangle_normal((b0, b1, b2))
+        tri3b = (b0, b2, b1) if n2[2] >= 0 else (b0, b1, b2)
+        mesh.add_triangle("concrete", tri3b, component="driveway_floor")
 
     wall_pairs = [
         (floor_sl, cut_start_left, cut_end_left, floor_el),
@@ -615,15 +741,16 @@ def _add_terrain(
     ]
     driveway_center_xy = ((drive_start[0] + drive_end[0]) * 0.5, (drive_start[1] + drive_end[1]) * 0.5)
     for f_start, c_start, c_end, f_end in wall_pairs:
-        fs = (f_start[0], f_start[1], driveway_z(f_start[0], f_start[1]))
-        fe = (f_end[0], f_end[1], driveway_z(f_end[0], f_end[1]))
-        cs = (c_start[0], c_start[1], max(terrain_z(c_start[0], c_start[1]), fs[2]))
-        ce = (c_end[0], c_end[1], max(terrain_z(c_end[0], c_end[1]), fe[2]))
-        tri1: Triangle3D = (fs, cs, ce)
-        tri2: Triangle3D = (fs, ce, fe)
+        # Wall from slab bottom to terrain (retaining wall visible from outside)
+        fs_bot = (f_start[0], f_start[1], driveway_z(f_start[0], f_start[1]) - slab_t)
+        fe_bot = (f_end[0], f_end[1], driveway_z(f_end[0], f_end[1]) - slab_t)
+        cs = (c_start[0], c_start[1], max(terrain_z(c_start[0], c_start[1]), fs_bot[2]))
+        ce = (c_end[0], c_end[1], max(terrain_z(c_end[0], c_end[1]), fe_bot[2]))
+        tri1: Triangle3D = (fs_bot, cs, ce)
+        tri2: Triangle3D = (fs_bot, ce, fe_bot)
         nx, ny, _ = _triangle_normal(tri1)
-        mx = (fs[0] + cs[0] + ce[0]) / 3.0
-        my = (fs[1] + cs[1] + ce[1]) / 3.0
+        mx = (fs_bot[0] + cs[0] + ce[0]) / 3.0
+        my = (fs_bot[1] + cs[1] + ce[1]) / 3.0
         to_center_x = driveway_center_xy[0] - mx
         to_center_y = driveway_center_xy[1] - my
         if (nx * to_center_x + ny * to_center_y) < 0.0:
@@ -631,19 +758,38 @@ def _add_terrain(
             tri2 = (tri2[0], tri2[2], tri2[1])
         mesh.add_triangle("concrete", tri1, component="driveway_walls")
         mesh.add_triangle("concrete", tri2, component="driveway_walls")
+        # Slab edge strip (slab bottom to slab top)
+        fs_top = (f_start[0], f_start[1], driveway_z(f_start[0], f_start[1]))
+        fe_top = (f_end[0], f_end[1], driveway_z(f_end[0], f_end[1]))
+        se1: Triangle3D = (fs_bot, fe_bot, fe_top)
+        se2: Triangle3D = (fs_bot, fe_top, fs_top)
+        sn = _triangle_normal(se1)
+        if (sn[0] * to_center_x + sn[1] * to_center_y) > 0.0:
+            se1 = (se1[0], se1[2], se1[1])
+            se2 = (se2[0], se2[2], se2[1])
+        mesh.add_triangle("concrete", se1, component="driveway_walls")
+        mesh.add_triangle("concrete", se2, component="driveway_walls")
 
-    # Extra driveway segments (flat + curved sections)
+    # Extra driveway segments (flat + curved sections) — top + bottom surfaces
     for seg_poly in extra_drive_segs:
         if not seg_poly.is_valid or seg_poly.is_empty:
             continue
         for tri in _triangles_for_polygon(seg_poly):
             p0, p1, p2 = tri
+            # Top surface
             t0 = (p0[0], p0[1], extra_drive_z(p0[0], p0[1]))
             t1 = (p1[0], p1[1], extra_drive_z(p1[0], p1[1]))
             t2 = (p2[0], p2[1], extra_drive_z(p2[0], p2[1]))
             n = _triangle_normal((t0, t1, t2))
             tri3 = (t0, t1, t2) if n[2] >= 0 else (t0, t2, t1)
             mesh.add_triangle("concrete", tri3, component="driveway_ext_floor")
+            # Bottom surface (1' below)
+            b0 = (p0[0], p0[1], extra_drive_z(p0[0], p0[1]) - slab_t)
+            b1 = (p1[0], p1[1], extra_drive_z(p1[0], p1[1]) - slab_t)
+            b2 = (p2[0], p2[1], extra_drive_z(p2[0], p2[1]) - slab_t)
+            n2 = _triangle_normal((b0, b1, b2))
+            tri3b = (b0, b2, b1) if n2[2] >= 0 else (b0, b1, b2)
+            mesh.add_triangle("concrete", tri3b, component="driveway_ext_floor")
 
     # Retaining walls along extra driveway edges (fills terrain-to-driveway gap)
     for edge_points, sign in [(extra_left_edges, 1.0), (extra_right_edges, -1.0)]:
@@ -656,12 +802,14 @@ def _add_terrain(
             tz1 = terrain_z(p1[0], p1[1])
             dz0 = extra_drive_z(p0[0], p0[1])
             dz1 = extra_drive_z(p1[0], p1[1])
-            if tz0 <= dz0 + 0.05 and tz1 <= dz1 + 0.05:
+            dz0_bot = dz0 - slab_t
+            dz1_bot = dz1 - slab_t
+            if tz0 <= dz0_bot + 0.05 and tz1 <= dz1_bot + 0.05:
                 continue
-            top0: Point3D = (p0[0], p0[1], max(tz0, dz0))
-            top1: Point3D = (p1[0], p1[1], max(tz1, dz1))
-            bot0: Point3D = (p0[0], p0[1], dz0)
-            bot1: Point3D = (p1[0], p1[1], dz1)
+            top0: Point3D = (p0[0], p0[1], max(tz0, dz0_bot))
+            top1: Point3D = (p1[0], p1[1], max(tz1, dz1_bot))
+            bot0: Point3D = (p0[0], p0[1], dz0_bot)
+            bot1: Point3D = (p1[0], p1[1], dz1_bot)
             tri1: Triangle3D = (bot0, bot1, top1)
             tri2: Triangle3D = (bot0, top1, top0)
             # Orient normals outward (away from driveway center)
@@ -708,8 +856,9 @@ def build_courtyard_shared_front_edge(mesh: ModelData, plan: PlanGeometry, confi
     courtyard = Polygon(plan.courtyard_polygon)
     top = float(config.get("master_triangle_elevation", float(config["upper_ground"])))
     drop = top + float(config["courtyard_drop"])
+    wt_conc = float(config.get("wall_thickness_concrete", 0.0))
     _add_polygon_cap(mesh, "concrete", courtyard, drop, up=True, component="courtyard")
-    _add_vertical_walls_for_polygon(mesh, courtyard, drop, top, "concrete", component="courtyard")
+    _add_vertical_walls_for_polygon(mesh, courtyard, drop, top, "concrete", component="courtyard", wall_thickness=wt_conc)
 
 
 def build_courtyard_none(mesh: ModelData, plan: PlanGeometry, config: Dict[str, float]) -> None:
@@ -820,6 +969,9 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
     atrium_roof_base = float(config["atrium_roof_base"])
     atrium_roof_rise = float(config["atrium_roof_rise"])
 
+    wt_conc = float(config.get("wall_thickness_concrete", 0.0))
+    wt_glass = float(config.get("wall_thickness_glass", 0.0))
+
     triangle_poly = Polygon(plan.master_triangle)
     atrium_poly = Polygon(plan.hex_vertices)
     courtyard_module_name = str(config.get("courtyard_module", "none"))
@@ -846,6 +998,7 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
         master_triangle_elevation + slab + ceiling,
         "glass",
         component="master_triangle_facade",
+        wall_thickness=wt_glass,
     )
     triangle_roof_poly = triangle_poly.difference(atrium_poly)
     add_extruded_polygon(
@@ -883,20 +1036,14 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
             "concrete",
             component=f"wing_{wing_name.lower()}_garage_facade",
             skip_edges=[atrium_edge_garage],
+            wall_thickness=wt_conc,
         )
-        # Glass wall on atrium-facing edge
+        # Glass wall on atrium-facing edge (solid)
         p0, p1 = atrium_edge_garage
         z0_w, z1_w = garage_floor + slab, garage_floor + slab + ceiling
-        tri_a: Triangle3D = ((p0[0], p0[1], z0_w), (p1[0], p1[1], z0_w), (p1[0], p1[1], z1_w))
-        tri_b: Triangle3D = ((p0[0], p0[1], z0_w), (p1[0], p1[1], z1_w), (p0[0], p0[1], z1_w))
-        nx, ny, _ = _triangle_normal(tri_a)
-        mx = (p0[0] + p1[0]) * 0.5
-        my = (p0[1] + p1[1]) * 0.5
-        if wing_poly.covers(Point(mx + nx * 0.05, my + ny * 0.05)):
-            tri_a = (tri_a[0], tri_a[2], tri_a[1])
-            tri_b = (tri_b[0], tri_b[2], tri_b[1])
-        mesh.add_triangle("glass", tri_a, component=f"wing_{wing_name.lower()}_garage_facade")
-        mesh.add_triangle("glass", tri_b, component=f"wing_{wing_name.lower()}_garage_facade")
+        _add_solid_wall_edge(mesh, "glass", p0, p1, z0_w, z1_w,
+                             wt_glass, wing_poly,
+                             component=f"wing_{wing_name.lower()}_garage_facade")
         add_extruded_polygon(
             mesh,
             wing_poly,
@@ -937,6 +1084,7 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
             "glass",
             component=f"wing_{wing_name.lower()}_facade",
             skip_edges=wing_skip,
+            wall_thickness=wt_glass,
         )
         add_extruded_polygon(
             mesh,
@@ -957,17 +1105,10 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
         z_bot = atrium_floor + slab
         z_top = upper_ground
         if z_top > z_bot:
-            tri1: Triangle3D = ((p0[0], p0[1], z_bot), (p1[0], p1[1], z_bot), (p1[0], p1[1], z_top))
-            tri2: Triangle3D = ((p0[0], p0[1], z_bot), (p1[0], p1[1], z_top), (p0[0], p0[1], z_top))
             w_poly = Polygon(plan.wing_polygons[wing_name])
-            nx, ny, _ = _triangle_normal(tri1)
-            mx = (p0[0] + p1[0]) * 0.5
-            my = (p0[1] + p1[1]) * 0.5
-            if w_poly.covers(Point(mx + nx * 0.05, my + ny * 0.05)):
-                tri1 = (tri1[0], tri1[2], tri1[1])
-                tri2 = (tri2[0], tri2[2], tri2[1])
-            mesh.add_triangle("concrete", tri1, component=f"wing_{wing_name.lower()}_atrium_wall")
-            mesh.add_triangle("concrete", tri2, component=f"wing_{wing_name.lower()}_atrium_wall")
+            _add_solid_wall_edge(mesh, "concrete", p0, p1, z_bot, z_top,
+                                wt_conc, w_poly,
+                                component=f"wing_{wing_name.lower()}_atrium_wall")
 
     add_extruded_polygon(
         mesh,
@@ -995,28 +1136,21 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
         "glass",
         component="atrium_facade",
         skip_edges=open_atrium_edges,
+        wall_thickness=wt_glass,
     )
     # Wing B atrium edge: glass below bedroom, concrete at bedroom, glass above
     p0_b, p1_b = wing_b_atrium_edge
     bed_wall_segments = [
-        (atrium_floor + slab, master_triangle_elevation, "glass"),
-        (master_triangle_elevation + slab, master_triangle_elevation + slab + ceiling, "concrete"),
-        (master_triangle_elevation + slab + ceiling, atrium_roof_base, "glass"),
+        (atrium_floor + slab, master_triangle_elevation, "glass", wt_glass),
+        (master_triangle_elevation + slab, master_triangle_elevation + slab + ceiling, "concrete", wt_conc),
+        (master_triangle_elevation + slab + ceiling, atrium_roof_base, "glass", wt_glass),
     ]
-    for z0_seg, z1_seg, seg_mat in bed_wall_segments:
+    for z0_seg, z1_seg, seg_mat, seg_wt in bed_wall_segments:
         if z1_seg <= z0_seg:
             continue
-        t1: Triangle3D = ((p0_b[0], p0_b[1], z0_seg), (p1_b[0], p1_b[1], z0_seg), (p1_b[0], p1_b[1], z1_seg))
-        t2: Triangle3D = ((p0_b[0], p0_b[1], z0_seg), (p1_b[0], p1_b[1], z1_seg), (p0_b[0], p0_b[1], z1_seg))
-        nx_s, ny_s, _ = _triangle_normal(t1)
-        mx_s = (p0_b[0] + p1_b[0]) * 0.5
-        my_s = (p0_b[1] + p1_b[1]) * 0.5
-        if atrium_poly.covers(Point(mx_s + nx_s * 0.05, my_s + ny_s * 0.05)):
-            t1 = (t1[0], t1[2], t1[1])
-            t2 = (t2[0], t2[2], t2[1])
         comp = "atrium_facade" if seg_mat == "glass" else "bedroom_accent_wall"
-        mesh.add_triangle(seg_mat, t1, component=comp)
-        mesh.add_triangle(seg_mat, t2, component=comp)
+        _add_solid_wall_edge(mesh, seg_mat, p0_b, p1_b, z0_seg, z1_seg,
+                             seg_wt, atrium_poly, component=comp)
     _add_pyramid_roof(mesh, plan.hex_vertices, atrium_roof_base, atrium_roof_rise, "glass", component="atrium_roof")
 
     courtyard_module(mesh, plan, config)

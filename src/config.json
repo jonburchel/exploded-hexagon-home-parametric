@@ -29,5 +29,7 @@
   "site_north_offset_deg": 0.0,
   "sun_month": 6,
   "sun_day": 21,
-  "sun_hour": 14.0
+  "sun_hour": 14.0,
+  "wall_thickness_concrete": 0.667,
+  "wall_thickness_glass": 0.333
 }
