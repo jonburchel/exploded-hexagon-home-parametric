@@ -78,8 +78,7 @@ def _poll():
             try:
                 result = eval(code)
             except SyntaxError:
-                ns = {}
-                exec(code, ns)
+                exec(compile(code, '<remote>', 'exec'))
                 result = None
         except Exception:
             error = traceback.format_exc()

@@ -1146,17 +1146,15 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
                                 wt_conc, w_poly,
                                 component=f"wing_{wing_name.lower()}_atrium_wall")
 
-    add_extruded_polygon(
-        mesh,
-        atrium_poly,
-        atrium_floor,
-        atrium_floor + slab,
-        top_material="marble",
-        bottom_material="concrete",
-        side_material="concrete",
-        component="atrium_floor",
-        wall_thickness=wt_conc,
-    )
+    # Atrium floor: top (marble) and bottom (concrete) caps only.
+    # Side walls are omitted because the gap-closing walls (above) and
+    # atrium facade glass walls (below) already cover every hex edge.
+    # Including side walls here caused z-fighting (coplanar concrete top-cap
+    # at z=atrium_floor+slab overlapping the marble top-cap).
+    _add_polygon_cap(mesh, "marble", atrium_poly, atrium_floor + slab,
+                     up=True, component="atrium_floor")
+    _add_polygon_cap(mesh, "concrete", atrium_poly, atrium_floor,
+                     up=False, component="atrium_floor")
     # Wing C edge (hex v1→v2) and Wing A edge (hex v0→v5) are open to atrium
     # Wing B edge (hex v3→v4) handled separately: concrete at bedroom level, glass elsewhere
     wing_b_atrium_edge = (plan.hex_vertices[3], plan.hex_vertices[4])
