@@ -1055,9 +1055,21 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
             component=f"wing_{wing_name.lower()}_garage_floor",
             wall_thickness=wt_conc,
         )
-        # Exterior walls concrete; atrium-facing edge glass
+        # Concrete walls from atrium floor up to garage floor (closes gap under wings)
         i0, i1 = WING_EDGE_INDICES[wing_name]
         atrium_edge_garage = (plan.hex_vertices[i0], plan.hex_vertices[i1])
+        if garage_floor > atrium_floor + slab:
+            _add_vertical_walls_for_polygon(
+                mesh,
+                wing_poly,
+                atrium_floor + slab,
+                garage_floor,
+                "concrete",
+                component=f"wing_{wing_name.lower()}_atrium_wall",
+                skip_edges=[atrium_edge_garage],
+                wall_thickness=wt_conc,
+            )
+        # All garage walls concrete (including atrium-facing edge)
         _add_vertical_walls_for_polygon(
             mesh,
             wing_poly,
@@ -1068,11 +1080,11 @@ def build_model(plan: PlanGeometry, config: Dict[str, float]) -> ModelData:
             skip_edges=[atrium_edge_garage],
             wall_thickness=wt_conc,
         )
-        # Glass wall on atrium-facing edge (solid)
+        # Concrete wall on atrium-facing edge
         p0, p1 = atrium_edge_garage
         z0_w, z1_w = garage_floor + slab, garage_floor + slab + ceiling
-        _add_solid_wall_edge(mesh, "glass", p0, p1, z0_w, z1_w,
-                             wt_glass, wing_poly,
+        _add_solid_wall_edge(mesh, "concrete", p0, p1, z0_w, z1_w,
+                             wt_conc, wing_poly,
                              component=f"wing_{wing_name.lower()}_garage_facade")
         add_extruded_polygon(
             mesh,
